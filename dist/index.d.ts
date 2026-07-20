@@ -90,23 +90,16 @@ type SendEventMap = {
     [SendSockEvent.EXIT]: null;
 };
 
-declare class UHFSocketSetup {
-    beep: boolean;
-    power: number;
-    constructor(beep: boolean, power: number);
-}
-
 declare class UHFSocketError extends Error {
     constructor(message: string);
 }
 
 declare class UhfSocket {
-    private setup;
     private connection;
     private static subscriptions;
     private static instance;
     private static started;
-    constructor(setup: UHFSocketSetup);
+    constructor();
     inicialice(): void;
     stop(): void;
     get observable(): rxjs.Observable<Message<any>>;

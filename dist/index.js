@@ -206,8 +206,7 @@ var Antenna = /* @__PURE__ */ ((Antenna2) => {
 
 // src/index.ts
 var _UhfSocket = class _UhfSocket {
-  constructor(setup) {
-    this.setup = setup;
+  constructor() {
     this.connection = new UhfSockClient();
     if (_UhfSocket.instance) {
       return _UhfSocket.instance;
@@ -220,12 +219,6 @@ var _UhfSocket = class _UhfSocket {
     }
     _UhfSocket.started = true;
     this.connection.start();
-    this.send("RESET" /* RESET */, null);
-    this.send("SET_BEEP" /* SET_BEEP */, this.setup.beep);
-    this.send("SET_POWER" /* SET_POWER */, {
-      power: this.setup.power,
-      antenna: 0 /* ALL */
-    });
   }
   stop() {
     this.connection.stop();
