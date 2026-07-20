@@ -65,6 +65,7 @@ var SockEvent = /* @__PURE__ */ ((SockEvent2) => {
   SockEvent2["SET_BEEP"] = "SET_BEEP";
   SockEvent2["GET_BEEP"] = "GET_BEEP";
   SockEvent2["TAG"] = "TAG";
+  SockEvent2["TAG_RAW"] = "TAG_RAW";
   SockEvent2["EXIT"] = "EXIT";
   return SockEvent2;
 })(SockEvent || {});
@@ -207,18 +208,18 @@ var Antenna = /* @__PURE__ */ ((Antenna2) => {
 var _UhfSocket = class _UhfSocket {
   constructor(setup) {
     this.setup = setup;
-    this.connexion = new UhfSockClient();
+    this.connection = new UhfSockClient();
     if (_UhfSocket.instance) {
       return _UhfSocket.instance;
     }
     _UhfSocket.instance = this;
   }
-  inicialize() {
+  inicialice() {
     if (_UhfSocket.started) {
       return;
     }
     _UhfSocket.started = true;
-    this.connexion.start();
+    this.connection.start();
     this.send("RESET" /* RESET */, null);
     this.send("SET_BEEP" /* SET_BEEP */, this.setup.beep);
     this.send("SET_POWER" /* SET_POWER */, {
@@ -227,20 +228,20 @@ var _UhfSocket = class _UhfSocket {
     });
   }
   stop() {
-    this.connexion.stop();
+    this.connection.stop();
     _UhfSocket.subscriptions.forEach((subscription) => subscription.unsubscribe());
     _UhfSocket.subscriptions = [];
     _UhfSocket.started = false;
   }
   get observable() {
-    return this.connexion.observable;
+    return this.connection.observable;
   }
   send(event, data) {
     const message = new Message(event, data);
-    this.connexion.sendMessage(message);
+    this.connection.sendMessage(message);
   }
   on(event, callback) {
-    const subscription = this.connexion.observable.subscribe((message) => {
+    const subscription = this.connection.observable.subscribe((message) => {
       if (message.event === event) {
         callback(message);
       }
@@ -249,15 +250,18 @@ var _UhfSocket = class _UhfSocket {
     return subscription;
   }
   onAll(callback) {
-    const subscription = this.connexion.observable.subscribe((message) => {
+    const subscription = this.connection.observable.subscribe((message) => {
       callback(message);
     });
     _UhfSocket.subscriptions.push(subscription);
     return subscription;
   }
   killProcess() {
-    this.connexion.killProcess();
+    this.connection.killProcess();
     this.stop();
+  }
+  async getLogs(maxLines = 1e3) {
+    return await this.connection.getLogs(maxLines);
   }
 };
 _UhfSocket.subscriptions = [];

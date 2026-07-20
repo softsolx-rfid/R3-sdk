@@ -13,6 +13,7 @@ declare enum SockEvent {
     SET_BEEP = "SET_BEEP",
     GET_BEEP = "GET_BEEP",
     TAG = "TAG",
+    TAG_RAW = "TAG_RAW",
     EXIT = "EXIT"
 }
 
@@ -45,6 +46,12 @@ type EventMap = {
     [SockEvent.GET_POWER]: (message: GetPowerMessage) => void;
     [SockEvent.SET_BEEP]: (message: Message<string>) => void;
     [SockEvent.GET_BEEP]: (message: Message<boolean>) => void;
+    [SockEvent.TAG_RAW]: (message: Message<{
+        epc: string;
+        antenna: string;
+        frequency: string;
+        user: string;
+    }>) => void;
     [SockEvent.EXIT]: (message: Message<null>) => void;
 };
 
@@ -95,18 +102,19 @@ declare class UHFSocketError extends Error {
 
 declare class UhfSocket {
     private setup;
-    private connexion;
+    private connection;
     private static subscriptions;
     private static instance;
     private static started;
     constructor(setup: UHFSocketSetup);
-    inicialize(): void;
+    inicialice(): void;
     stop(): void;
     get observable(): rxjs.Observable<Message<any>>;
     send<K extends SendSockEvent>(event: K, data: SendEventMap[K]): void;
     on<K extends SockEvent>(event: K, callback: EventMap[K]): Subscription;
     onAll(callback: (message: Message) => void): Subscription;
     killProcess(): void;
+    getLogs(maxLines?: number): Promise<string>;
 }
 
 export { Antenna, SendSockEvent, SockEvent, UHFSocketError, UhfSocket as default };
