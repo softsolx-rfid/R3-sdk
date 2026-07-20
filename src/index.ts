@@ -28,7 +28,6 @@ class UhfSocket {
     }
     UhfSocket.started = true;
     this.connection.start();
-    this.send(SendSockEvent.RESET, null);
   }
 
   public stop() {
