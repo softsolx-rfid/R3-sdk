@@ -10,7 +10,7 @@ import { UHFSocketSetup } from "./dto/uhf-socket-setup";
 import { UHFSocketError } from "./errors/uhf-sock.error";
 
 class UhfSocket {
-  private connexion = new UhfSockClient();
+  private connection = new UhfSockClient();
   private static subscriptions: Subscription[] = [];
   private static instance: UhfSocket;
   private static started: boolean = false;
@@ -22,12 +22,12 @@ class UhfSocket {
     UhfSocket.instance = this;
   }
 
-  public inicialize() {
+  public inicialice() {
     if (UhfSocket.started) {
       return;
     }
     UhfSocket.started = true;
-    this.connexion.start();
+    this.connection.start();
     this.send(SendSockEvent.RESET, null);
     this.send(SendSockEvent.SET_BEEP, this.setup.beep);
     this.send(SendSockEvent.SET_POWER, {
@@ -37,23 +37,23 @@ class UhfSocket {
   }
 
   public stop() {
-    this.connexion.stop();
+    this.connection.stop();
     UhfSocket.subscriptions.forEach(subscription => subscription.unsubscribe());
     UhfSocket.subscriptions = [];
     UhfSocket.started = false;
   }
 
   public get observable() {
-    return this.connexion.observable;
+    return this.connection.observable;
   }
 
   public send<K extends SendSockEvent>(event: K, data: SendEventMap[K]) {
     const message = new Message(event as unknown as SockEvent, data);
-    this.connexion.sendMessage(message);
+    this.connection.sendMessage(message);
   }
 
   public on<K extends SockEvent>(event: K, callback: EventMap[K]) {
-    const subscription: Subscription = this.connexion.observable.subscribe((message) => {
+    const subscription: Subscription = this.connection.observable.subscribe((message) => {
       if (message.event === event) {
         callback(message as any);
       }
@@ -63,7 +63,7 @@ class UhfSocket {
   }
 
   public onAll(callback: (message: Message) => void) {
-    const subscription: Subscription = this.connexion.observable.subscribe((message) => {
+    const subscription: Subscription = this.connection.observable.subscribe((message) => {
       callback(message);
     });
     UhfSocket.subscriptions.push(subscription);
@@ -71,8 +71,12 @@ class UhfSocket {
   }
 
   public killProcess() {
-    this.connexion.killProcess();
+    this.connection.killProcess();
     this.stop();
+  }
+
+  public async getLogs(maxLines = 1000) {
+    return await this.connection.getLogs(maxLines);
   }
 }
 
