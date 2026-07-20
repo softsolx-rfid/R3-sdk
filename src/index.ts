@@ -15,7 +15,7 @@ class UhfSocket {
   private static instance: UhfSocket;
   private static started: boolean = false;
 
-  constructor(private setup: UHFSocketSetup) {
+  constructor() {
     if (UhfSocket.instance) {
       return UhfSocket.instance;
     }
@@ -29,11 +29,6 @@ class UhfSocket {
     UhfSocket.started = true;
     this.connection.start();
     this.send(SendSockEvent.RESET, null);
-    this.send(SendSockEvent.SET_BEEP, this.setup.beep);
-    this.send(SendSockEvent.SET_POWER, {
-      power: this.setup.power,
-      antenna: Antenna.ALL
-    });
   }
 
   public stop() {
