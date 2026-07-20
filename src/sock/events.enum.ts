@@ -10,5 +10,6 @@ export enum SockEvent {
   SET_BEEP="SET_BEEP",
   GET_BEEP="GET_BEEP",
   TAG="TAG",
+  TAG_RAW="TAG_RAW",
   EXIT="EXIT",
 }

@@ -15,5 +15,11 @@ export type EventMap = {
   [SockEvent.GET_POWER]: (message: GetPowerMessage) => void;
   [SockEvent.SET_BEEP]: (message: Message<string>) => void;
   [SockEvent.GET_BEEP]: (message: Message<boolean>) => void;
+  [SockEvent.TAG_RAW]: (message: Message<{
+    epc: string;
+    antenna: string;
+    frequency: string;
+    user: string;
+  }>) => void;
   [SockEvent.EXIT]: (message: Message<null>) => void;
 };
