@@ -67,9 +67,9 @@ export class UhfSockClient {
       try {
         this.dataBuffer += data.toString();
         const line = this.dataBuffer.indexOf('\n');
-        if( line === -1) {
+        if (line === -1) {
           return; // Wait for the complete message
-        } 
+        }
         const messageStr = this.dataBuffer.slice(0, line);
         this.dataBuffer = this.dataBuffer.slice(line + 1);
         const message = JSON.parse(messageStr);
@@ -83,7 +83,7 @@ export class UhfSockClient {
     });
 
     this.client.on('close', () => {
-      this.subject.next(new Message(SockEvent.DISCONNECTED, null));
+      this.stop();
     });
 
 
@@ -93,7 +93,7 @@ export class UhfSockClient {
     });
 
     this.client.on('end', () => {
-      this.subject.next(new Message(SockEvent.DISCONNECTED, null));
+      this.stop();
     });
 
   }

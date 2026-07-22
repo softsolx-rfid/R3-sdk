@@ -29,10 +29,15 @@ class UhfSocket {
     UhfSocket.started = true;
     this.connection.start();
     this.send(SendSockEvent.RESET, null);
+    this.on(SockEvent.DISCONNECTED, () => {
+      UhfSocket.subscriptions.forEach(subscription => subscription.unsubscribe());
+      UhfSocket.subscriptions = [];
+      UhfSocket.started = false;
+    });
   }
 
   public stop() {
-    if(!UhfSocket.started) {
+    if (!UhfSocket.started) {
       throw new UHFSocketError('UHF Socket is not started. Please start it before stopping.');
     }
     this.connection.stop();
