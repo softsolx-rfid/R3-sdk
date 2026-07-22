@@ -10,12 +10,15 @@ export class UhfSockClient {
   private static instance: UhfSockClient;
   private subject = new Subject<Message>();
   private _client: net.Socket | null = null;
-  private retryAttempts = 0;
   private driverInfo: {
     socketPath: string,
     logsPath: string,
     pid: number
   } | null = null;
+
+  // utils
+  private retryAttempts = 0;
+  private dataBuffer = '';
 
   constructor() {
     if (UhfSockClient.instance) {
@@ -62,7 +65,14 @@ export class UhfSockClient {
         return;
       }
       try {
-        const message = JSON.parse(data.toString());
+        this.dataBuffer += data.toString();
+        const line = this.dataBuffer.indexOf('\n');
+        if( line === -1) {
+          return; // Wait for the complete message
+        } 
+        const messageStr = this.dataBuffer.slice(0, line);
+        this.dataBuffer = this.dataBuffer.slice(line + 1);
+        const message = JSON.parse(messageStr);
         this.subject.next(new Message(message.event, message.data));
       } catch (error) {
         if (error instanceof SyntaxError) {
