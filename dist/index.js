@@ -122,19 +122,15 @@ var UhfSockClient = class _UhfSockClient {
     return this.subject.asObservable();
   }
   start() {
-    if (this._client) {
-      throw new UHFSocketError(
-        "Client is already started. Please stop it before starting again."
-      );
-    }
     if (!this.driverInfo) {
       throw new UHFSocketError(
         "Driver info not available. Ensure that the UHF socket server is running and the /var/uhf/uhf.var file exists."
       );
     }
-    this._client = import_net.default.createConnection(this.driverInfo.socketPath, () => {
-      this.subject.next(new Message("CONNECTED" /* CONNECTED */, null));
-    });
+    this._client = import_net.default.createConnection(
+      this.driverInfo.socketPath,
+      () => this.emit("CONNECTED" /* CONNECTED */, null)
+    );
     this.client.on("data", (data) => {
       if (data.toString() === "PING") {
         this.retryAttempts = 0;
@@ -143,26 +139,29 @@ var UhfSockClient = class _UhfSockClient {
       }
       try {
         this.dataBuffer += data.toString();
-        const line = this.dataBuffer.indexOf("\n");
-        if (line === -1) {
-          return;
+        let line = this.dataBuffer.indexOf("\n");
+        while (line !== -1) {
+          const messageStr = this.dataBuffer.slice(0, line);
+          this.dataBuffer = this.dataBuffer.slice(line + 1);
+          try {
+            const message = JSON.parse(messageStr);
+            this.emit(message.event, message.data);
+          } catch (error) {
+            this.emitError(
+              "Error parsing message: " + String(error)
+            );
+          }
+          line = this.dataBuffer.indexOf("\n");
         }
-        const messageStr = this.dataBuffer.slice(0, line);
-        this.dataBuffer = this.dataBuffer.slice(line + 1);
-        const message = JSON.parse(messageStr);
-        this.subject.next(new Message(message.event, message.data));
       } catch (error) {
-        if (error instanceof SyntaxError) {
-          return;
-        }
-        console.error("Error parsing JSON:", error);
+        this.emitError("Error processing data: " + String(error));
       }
     });
     this.client.on("close", () => {
       this.stop();
     });
     this.client.on("error", (err) => {
-      this.subject.next(new Message("ERROR" /* ERROR */, err));
+      this.emitError("Socket error: " + String(err));
       this.retryConnection();
     });
     this.client.on("end", () => {
@@ -173,7 +172,7 @@ var UhfSockClient = class _UhfSockClient {
     if (this._client) {
       this.client.end();
       this._client = null;
-      this.subject.next(new Message("DISCONNECTED" /* DISCONNECTED */, null));
+      this.emit("DISCONNECTED" /* DISCONNECTED */, null);
     }
   }
   sendMessage(message) {
@@ -187,13 +186,16 @@ var UhfSockClient = class _UhfSockClient {
       }, 1e3 * this.retryAttempts);
     } else {
       this.stop();
-      this.subject.next(
-        new Message(
-          "ERROR" /* ERROR */,
-          new UHFSocketError("Max retry attempts reached.")
-        )
-      );
+      this.emitError("Max retry attempts reached. Connection failed.");
     }
+  }
+  emit(event, data) {
+    this.subject.next(new Message(event, data));
+  }
+  emitError(message) {
+    this.subject.next(
+      new Message("ERROR" /* ERROR */, new UHFSocketError(message))
+    );
   }
   // utils
   async getLogs(maxLines = 1e3) {
@@ -272,26 +274,31 @@ var _UhfSocket = class _UhfSocket {
     _UhfSocket.instance = this;
   }
   inicialice() {
-    if (_UhfSocket.started) {
-      throw new UHFSocketError("UHF Socket is already started. Please stop it before initializing again.");
+    if (this.connection._client) {
+      throw new UHFSocketError(
+        "UHF Socket is already started. Please stop it before initializing again."
+      );
     }
-    _UhfSocket.started = true;
     this.connection.start();
     this.send("RESET" /* RESET */, null);
     this.on("DISCONNECTED" /* DISCONNECTED */, () => {
-      _UhfSocket.subscriptions.forEach((subscription) => subscription.unsubscribe());
+      _UhfSocket.subscriptions.forEach(
+        (subscription) => subscription.unsubscribe()
+      );
       _UhfSocket.subscriptions = [];
-      _UhfSocket.started = false;
     });
   }
   stop() {
-    if (!_UhfSocket.started) {
-      throw new UHFSocketError("UHF Socket is not started. Please start it before stopping.");
+    if (!this.connection._client) {
+      throw new UHFSocketError(
+        "UHF Socket is not started. Please start it before stopping."
+      );
     }
     this.connection.stop();
-    _UhfSocket.subscriptions.forEach((subscription) => subscription.unsubscribe());
+    _UhfSocket.subscriptions.forEach(
+      (subscription) => subscription.unsubscribe()
+    );
     _UhfSocket.subscriptions = [];
-    _UhfSocket.started = false;
   }
   get observable() {
     return this.connection.observable;
@@ -301,18 +308,22 @@ var _UhfSocket = class _UhfSocket {
     this.connection.sendMessage(message);
   }
   on(event, callback) {
-    const subscription = this.connection.observable.subscribe((message) => {
-      if (message.event === event) {
-        callback(message);
+    const subscription = this.connection.observable.subscribe(
+      (message) => {
+        if (message.event === event) {
+          callback(message);
+        }
       }
-    });
+    );
     _UhfSocket.subscriptions.push(subscription);
     return subscription;
   }
   onAll(callback) {
-    const subscription = this.connection.observable.subscribe((message) => {
-      callback(message);
-    });
+    const subscription = this.connection.observable.subscribe(
+      (message) => {
+        callback(message);
+      }
+    );
     _UhfSocket.subscriptions.push(subscription);
     return subscription;
   }
@@ -325,7 +336,6 @@ var _UhfSocket = class _UhfSocket {
   }
 };
 _UhfSocket.subscriptions = [];
-_UhfSocket.started = false;
 var UhfSocket = _UhfSocket;
 var index_default = UhfSocket;
 // Annotate the CommonJS export names for ESM import in node:

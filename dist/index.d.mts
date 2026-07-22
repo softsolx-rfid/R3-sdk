@@ -98,7 +98,6 @@ declare class UhfSocket {
     private connection;
     private static subscriptions;
     private static instance;
-    private static started;
     constructor();
     inicialice(): void;
     stop(): void;
