@@ -61,14 +61,20 @@ var UhfSockClient = class _UhfSockClient {
   }
   setup() {
     try {
-      this.driverInfo = JSON.parse(readFileSync("/var/uhf/uhf.var", "utf8"));
+      this.driverInfo = JSON.parse(
+        readFileSync("/var/uhf/uhf.var", "utf8")
+      );
     } catch (error) {
-      throw new UHFSocketError("UHF socket variable file not found. Please ensure that the UHF socket server is running and the /var/uhf/uhf.var file exists.");
+      throw new UHFSocketError(
+        "UHF socket variable file not found. Please ensure that the UHF socket server is running and the /var/uhf/uhf.var file exists."
+      );
     }
   }
   get client() {
     if (!this._client) {
-      throw new UHFSocketError("Client is not initialized. Call start() first.");
+      throw new UHFSocketError(
+        "Client is not initialized. Call start() first."
+      );
     }
     return this._client;
   }
@@ -77,10 +83,14 @@ var UhfSockClient = class _UhfSockClient {
   }
   start() {
     if (this._client) {
-      throw new UHFSocketError("Client is already started. Please stop it before starting again.");
+      throw new UHFSocketError(
+        "Client is already started. Please stop it before starting again."
+      );
     }
     if (!this.driverInfo) {
-      throw new UHFSocketError("Driver info not available. Ensure that the UHF socket server is running and the /var/uhf/uhf.var file exists.");
+      throw new UHFSocketError(
+        "Driver info not available. Ensure that the UHF socket server is running and the /var/uhf/uhf.var file exists."
+      );
     }
     this._client = net.createConnection(this.driverInfo.socketPath, () => {
       this.subject.next(new Message("CONNECTED" /* CONNECTED */, null));
@@ -124,8 +134,6 @@ var UhfSockClient = class _UhfSockClient {
       this.client.end();
       this._client = null;
       this.subject.next(new Message("DISCONNECTED" /* DISCONNECTED */, null));
-    } else {
-      throw new UHFSocketError("Client is not initialized. Call start() first.");
     }
   }
   sendMessage(message) {
@@ -139,13 +147,20 @@ var UhfSockClient = class _UhfSockClient {
       }, 1e3 * this.retryAttempts);
     } else {
       this.stop();
-      this.subject.next(new Message("ERROR" /* ERROR */, new UHFSocketError("Max retry attempts reached.")));
+      this.subject.next(
+        new Message(
+          "ERROR" /* ERROR */,
+          new UHFSocketError("Max retry attempts reached.")
+        )
+      );
     }
   }
   // utils
   async getLogs(maxLines = 1e3) {
     if (!this.driverInfo) {
-      throw new UHFSocketError("Driver info not available. Ensure that the UHF socket server is running and the /var/uhf/uhf.var file exists.");
+      throw new UHFSocketError(
+        "Driver info not available. Ensure that the UHF socket server is running and the /var/uhf/uhf.var file exists."
+      );
     }
     try {
       const file = await fs.open(this.driverInfo.logsPath, "r");
@@ -166,7 +181,9 @@ var UhfSockClient = class _UhfSockClient {
       try {
         this.client.destroy();
         if (process.getuid && process.getuid() !== 0) {
-          throw new UHFSocketError("Insufficient privileges to kill the process. Please run the application with sudo or as root.");
+          throw new UHFSocketError(
+            "Insufficient privileges to kill the process. Please run the application with sudo or as root."
+          );
         }
         process.kill(this.driverInfo.pid);
         this.subject.next(new Message("EXIT" /* EXIT */, null));
@@ -174,7 +191,9 @@ var UhfSockClient = class _UhfSockClient {
         console.error("Error killing process:", error);
       }
     } else {
-      throw new UHFSocketError("Driver PID not available. Ensure that the UHF socket server is running and the /var/uhf/uhf.var file exists.");
+      throw new UHFSocketError(
+        "Driver PID not available. Ensure that the UHF socket server is running and the /var/uhf/uhf.var file exists."
+      );
     }
   }
 };
