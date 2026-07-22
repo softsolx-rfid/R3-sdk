@@ -74,6 +74,9 @@ var UhfSockClient = class _UhfSockClient {
     return this.subject.asObservable();
   }
   start() {
+    if (this._client) {
+      throw new UHFSocketError("Client is already started. Please stop it before starting again.");
+    }
     if (!this.driverInfo) {
       throw new UHFSocketError("Driver info not available. Ensure that the UHF socket server is running and the /var/uhf/uhf.var file exists.");
     }
@@ -110,9 +113,10 @@ var UhfSockClient = class _UhfSockClient {
   stop() {
     if (this._client) {
       this.client.end();
-      this.client.destroy();
       this._client = null;
       this.subject.next(new Message("DISCONNECTED" /* DISCONNECTED */, null));
+    } else {
+      throw new UHFSocketError("Client is not initialized. Call start() first.");
     }
   }
   sendMessage(message) {
@@ -151,6 +155,7 @@ var UhfSockClient = class _UhfSockClient {
   killProcess() {
     if (this.driverInfo?.pid) {
       try {
+        this.client.destroy();
         if (process.getuid && process.getuid() !== 0) {
           throw new UHFSocketError("Insufficient privileges to kill the process. Please run the application with sudo or as root.");
         }
@@ -200,13 +205,16 @@ var _UhfSocket = class _UhfSocket {
   }
   inicialice() {
     if (_UhfSocket.started) {
-      return;
+      throw new UHFSocketError("UHF Socket is already started. Please stop it before initializing again.");
     }
     _UhfSocket.started = true;
     this.connection.start();
     this.send("RESET" /* RESET */, null);
   }
   stop() {
+    if (!_UhfSocket.started) {
+      throw new UHFSocketError("UHF Socket is not started. Please start it before stopping.");
+    }
     this.connection.stop();
     _UhfSocket.subscriptions.forEach((subscription) => subscription.unsubscribe());
     _UhfSocket.subscriptions = [];
