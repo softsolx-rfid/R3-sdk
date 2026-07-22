@@ -73,6 +73,7 @@ var SockEvent = /* @__PURE__ */ ((SockEvent2) => {
 // src/sock/uhf-sock.client.ts
 var import_net = __toESM(require("net"));
 var import_rxjs = require("rxjs");
+var import_fs = require("fs");
 
 // src/errors/uhf-sock.error.ts
 var UHFSocketError = class extends Error {
@@ -97,6 +98,11 @@ var UhfSockClient = class _UhfSockClient {
     _UhfSockClient.instance = this;
   }
   setup() {
+    try {
+      this.driverInfo = JSON.parse((0, import_fs.readFileSync)("/var/uhf/uhf.var", "utf8"));
+    } catch (error) {
+      throw new UHFSocketError("UHF socket variable file not found. Please ensure that the UHF socket server is running and the /var/uhf/uhf.var file exists.");
+    }
   }
   get client() {
     if (!this._client) {
@@ -108,7 +114,10 @@ var UhfSockClient = class _UhfSockClient {
     return this.subject.asObservable();
   }
   start() {
-    this._client = import_net.default.createConnection("/tmp/sock.cok", () => {
+    if (!this.driverInfo) {
+      throw new UHFSocketError("Driver info not available. Ensure that the UHF socket server is running and the /var/uhf/uhf.var file exists.");
+    }
+    this._client = import_net.default.createConnection(this.driverInfo.socketPath, () => {
       this.subject.next(new Message("CONNECTED" /* CONNECTED */, null));
     });
     this.client.on("data", (data) => {
