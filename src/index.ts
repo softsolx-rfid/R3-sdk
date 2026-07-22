@@ -10,77 +10,85 @@ import { UHFSocketSetup } from "./dto/uhf-socket-setup";
 import { UHFSocketError } from "./errors/uhf-sock.error";
 
 class UhfSocket {
-  private connection = new UhfSockClient();
-  private static subscriptions: Subscription[] = [];
-  private static instance: UhfSocket;
-  private static started: boolean = false;
+    private connection = new UhfSockClient();
+    private static subscriptions: Subscription[] = [];
+    private static instance: UhfSocket;
 
-  constructor() {
-    if (UhfSocket.instance) {
-      return UhfSocket.instance;
+    constructor() {
+        if (UhfSocket.instance) {
+            return UhfSocket.instance;
+        }
+        UhfSocket.instance = this;
     }
-    UhfSocket.instance = this;
-  }
 
-  public inicialice() {
-    if (UhfSocket.started) {
-      throw new UHFSocketError('UHF Socket is already started. Please stop it before initializing again.');
+    public inicialice() {
+        if (this.connection._client) {
+            throw new UHFSocketError(
+                "UHF Socket is already started. Please stop it before initializing again.",
+            );
+        }
+        this.connection.start();
+        this.send(SendSockEvent.RESET, null);
+        this.on(SockEvent.DISCONNECTED, () => {
+            UhfSocket.subscriptions.forEach((subscription) =>
+                subscription.unsubscribe(),
+            );
+            UhfSocket.subscriptions = [];
+        });
     }
-    UhfSocket.started = true;
-    this.connection.start();
-    this.send(SendSockEvent.RESET, null);
-    this.on(SockEvent.DISCONNECTED, () => {
-      UhfSocket.subscriptions.forEach(subscription => subscription.unsubscribe());
-      UhfSocket.subscriptions = [];
-      UhfSocket.started = false;
-    });
-  }
 
-  public stop() {
-    if (!UhfSocket.started) {
-      throw new UHFSocketError('UHF Socket is not started. Please start it before stopping.');
+    public stop() {
+        if (!this.connection._client) {
+            throw new UHFSocketError(
+                "UHF Socket is not started. Please start it before stopping.",
+            );
+        }
+        this.connection.stop();
+        UhfSocket.subscriptions.forEach((subscription) =>
+            subscription.unsubscribe(),
+        );
+        UhfSocket.subscriptions = [];
     }
-    this.connection.stop();
-    UhfSocket.subscriptions.forEach(subscription => subscription.unsubscribe());
-    UhfSocket.subscriptions = [];
-    UhfSocket.started = false;
-  }
 
-  public get observable() {
-    return this.connection.observable;
-  }
+    public get observable() {
+        return this.connection.observable;
+    }
 
-  public send<K extends SendSockEvent>(event: K, data: SendEventMap[K]) {
-    const message = new Message(event as unknown as SockEvent, data);
-    this.connection.sendMessage(message);
-  }
+    public send<K extends SendSockEvent>(event: K, data: SendEventMap[K]) {
+        const message = new Message(event as unknown as SockEvent, data);
+        this.connection.sendMessage(message);
+    }
 
-  public on<K extends SockEvent>(event: K, callback: EventMap[K]) {
-    const subscription: Subscription = this.connection.observable.subscribe((message) => {
-      if (message.event === event) {
-        callback(message as any);
-      }
-    });
-    UhfSocket.subscriptions.push(subscription);
-    return subscription;
-  }
+    public on<K extends SockEvent>(event: K, callback: EventMap[K]) {
+        const subscription: Subscription = this.connection.observable.subscribe(
+            (message) => {
+                if (message.event === event) {
+                    callback(message as any);
+                }
+            },
+        );
+        UhfSocket.subscriptions.push(subscription);
+        return subscription;
+    }
 
-  public onAll(callback: (message: Message) => void) {
-    const subscription: Subscription = this.connection.observable.subscribe((message) => {
-      callback(message);
-    });
-    UhfSocket.subscriptions.push(subscription);
-    return subscription;
-  }
+    public onAll(callback: (message: Message) => void) {
+        const subscription: Subscription = this.connection.observable.subscribe(
+            (message) => {
+                callback(message);
+            },
+        );
+        UhfSocket.subscriptions.push(subscription);
+        return subscription;
+    }
 
-  public killProcess() {
-    this.connection.killProcess();
-    this.stop();
-  }
+    public killProcess() {
+        this.connection.killProcess();
+        this.stop();
+    }
 
-  public async getLogs(maxLines = 1000) {
-    return await this.connection.getLogs(maxLines);
-  }
+    public async getLogs(maxLines = 1000) {
+        return await this.connection.getLogs(maxLines);
+    }
 }
 
 export default UhfSocket;

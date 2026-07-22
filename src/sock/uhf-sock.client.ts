@@ -9,7 +9,7 @@ import * as fs from "fs/promises";
 export class UhfSockClient {
     private static instance: UhfSockClient;
     private subject = new Subject<Message>();
-    private _client: net.Socket | null = null;
+    public _client: net.Socket | null = null;
     private driverInfo: {
         socketPath: string;
         logsPath: string;
@@ -54,19 +54,14 @@ export class UhfSockClient {
     }
 
     public start() {
-        if (this._client) {
-            throw new UHFSocketError(
-                "Client is already started. Please stop it before starting again.",
-            );
-        }
         if (!this.driverInfo) {
             throw new UHFSocketError(
                 "Driver info not available. Ensure that the UHF socket server is running and the /var/uhf/uhf.var file exists.",
             );
         }
-        this._client = net.createConnection(this.driverInfo.socketPath, () => {
-            this.subject.next(new Message(SockEvent.CONNECTED, null));
-        });
+        this._client = net.createConnection(this.driverInfo.socketPath, () =>
+            this.emit(SockEvent.CONNECTED, null),
+        );
 
         this.client.on("data", (data) => {
             if (data.toString() === "PING") {
@@ -76,19 +71,22 @@ export class UhfSockClient {
             }
             try {
                 this.dataBuffer += data.toString();
-                const line = this.dataBuffer.indexOf("\n");
-                if (line === -1) {
-                    return; // Wait for the complete message
+                let line = this.dataBuffer.indexOf("\n");
+                while (line !== -1) {
+                    const messageStr = this.dataBuffer.slice(0, line);
+                    this.dataBuffer = this.dataBuffer.slice(line + 1);
+                    try {
+                        const message = JSON.parse(messageStr);
+                        this.emit(message.event, message.data);
+                    } catch (error) {
+                        this.emitError(
+                            "Error parsing message: " + String(error),
+                        );
+                    }
+                    line = this.dataBuffer.indexOf("\n");
                 }
-                const messageStr = this.dataBuffer.slice(0, line);
-                this.dataBuffer = this.dataBuffer.slice(line + 1);
-                const message = JSON.parse(messageStr);
-                this.subject.next(new Message(message.event, message.data));
             } catch (error) {
-                if (error instanceof SyntaxError) {
-                    return;
-                }
-                console.error("Error parsing JSON:", error);
+                this.emitError("Error processing data: " + String(error));
             }
         });
 
@@ -97,7 +95,7 @@ export class UhfSockClient {
         });
 
         this.client.on("error", (err) => {
-            this.subject.next(new Message(SockEvent.ERROR, err));
+            this.emitError("Socket error: " + String(err));
             this.retryConnection();
         });
 
@@ -110,7 +108,7 @@ export class UhfSockClient {
         if (this._client) {
             this.client.end();
             this._client = null;
-            this.subject.next(new Message(SockEvent.DISCONNECTED, null));
+            this.emit(SockEvent.DISCONNECTED, null);
         }
     }
 
@@ -126,13 +124,18 @@ export class UhfSockClient {
             }, 1000 * this.retryAttempts);
         } else {
             this.stop();
-            this.subject.next(
-                new Message(
-                    SockEvent.ERROR,
-                    new UHFSocketError("Max retry attempts reached."),
-                ),
-            );
+            this.emitError("Max retry attempts reached. Connection failed.");
         }
+    }
+
+    private emit<T>(event: SockEvent, data: T) {
+        this.subject.next(new Message(event, data));
+    }
+
+    private emitError(message: string) {
+        this.subject.next(
+            new Message(SockEvent.ERROR, new UHFSocketError(message)),
+        );
     }
 
     // utils
