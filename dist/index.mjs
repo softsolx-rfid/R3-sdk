@@ -109,14 +109,14 @@ var UhfSockClient = class _UhfSockClient {
       }
     });
     this.client.on("close", () => {
-      this.subject.next(new Message("DISCONNECTED" /* DISCONNECTED */, null));
+      this.stop();
     });
     this.client.on("error", (err) => {
       this.subject.next(new Message("ERROR" /* ERROR */, err));
       this.retryConnection();
     });
     this.client.on("end", () => {
-      this.subject.next(new Message("DISCONNECTED" /* DISCONNECTED */, null));
+      this.stop();
     });
   }
   stop() {
@@ -219,6 +219,11 @@ var _UhfSocket = class _UhfSocket {
     _UhfSocket.started = true;
     this.connection.start();
     this.send("RESET" /* RESET */, null);
+    this.on("DISCONNECTED" /* DISCONNECTED */, () => {
+      _UhfSocket.subscriptions.forEach((subscription) => subscription.unsubscribe());
+      _UhfSocket.subscriptions = [];
+      _UhfSocket.started = false;
+    });
   }
   stop() {
     if (!_UhfSocket.started) {
