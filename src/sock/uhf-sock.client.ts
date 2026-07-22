@@ -48,7 +48,7 @@ export class UhfSockClient {
     if (!this.driverInfo) {
       throw new UHFSocketError('Driver info not available. Ensure that the UHF socket server is running and the /var/uhf/uhf.var file exists.');
     }
-    this._client = net.createConnection('/tmp/sock.cok', () => {
+    this._client = net.createConnection(this.driverInfo.socketPath, () => {
       this.subject.next(new Message(SockEvent.CONNECTED, null));
     });
 
