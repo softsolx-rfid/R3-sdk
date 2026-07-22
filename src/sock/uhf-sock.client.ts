@@ -7,9 +7,10 @@ import { UHFSocketError } from '@/errors/uhf-sock.error';
 import * as fs from 'fs/promises';
 
 export class UhfSockClient {
+  private static instance: UhfSockClient;
   private subject = new Subject<Message>();
   private _client: net.Socket | null = null;
-  private static instance: UhfSockClient;
+  private retryAttempts = 0;
   private driverInfo: {
     socketPath: string,
     logsPath: string,
@@ -47,18 +48,19 @@ export class UhfSockClient {
     if (!this.driverInfo) {
       throw new UHFSocketError('Driver info not available. Ensure that the UHF socket server is running and the /var/uhf/uhf.var file exists.');
     }
-    this._client = net.createConnection(this.driverInfo.socketPath, () => {
+    this._client = net.createConnection('/tmp/sock.cok', () => {
       this.subject.next(new Message(SockEvent.CONNECTED, null));
-    })
+    });
 
     this.client.on('data', (data) => {
       if (data.toString() === "PING") {
+        this.retryAttempts = 0; // Reset retry attempts on successful ping
         this.client.write("PONG\n");
         return;
       }
       try {
-        const messaje = JSON.parse(data.toString());
-        this.subject.next(new Message(messaje.event, messaje.data));
+        const message = JSON.parse(data.toString());
+        this.subject.next(new Message(message.event, message.data));
       } catch (error) {
         if (error instanceof SyntaxError) {
           return;
@@ -67,34 +69,48 @@ export class UhfSockClient {
       }
     });
 
+    this.client.on('close', () => {
+      this.subject.next(new Message(SockEvent.DISCONNECTED, null));
+    });
+
+
+    this.client.on('error', (err) => {
+      this.subject.next(new Message(SockEvent.ERROR, err));
+      this.retryConnection();
+    });
+
     this.client.on('end', () => {
       this.subject.next(new Message(SockEvent.DISCONNECTED, null));
     });
+
   }
 
   public stop() {
     if (this._client) {
       this.client.end();
+      this.client.destroy();
       this._client = null;
       this.subject.next(new Message(SockEvent.DISCONNECTED, null));
     }
-  }
-
-  public killProcess() {
-    if (this.driverInfo?.pid) {
-      try {
-        process.kill(this.driverInfo.pid);
-        this.subject.next(new Message(SockEvent.EXIT, null));
-      } catch (error) {
-        console.error('Error killing process:', error);
-      }
-    } else { throw new UHFSocketError('Driver PID not available. Ensure that the UHF socket server is running and the /var/uhf/uhf.var file exists.'); }
   }
 
   public sendMessage<T>(message: Message<T>) {
     this.client.write(message.toJson() + '\n');
   }
 
+  private retryConnection() {
+    if (this.retryAttempts < 5) {
+      this.retryAttempts++;
+      setTimeout(() => {
+        this.start();
+      }, 1000 * this.retryAttempts);
+    } else {
+      this.stop();
+      this.subject.next(new Message(SockEvent.ERROR, new UHFSocketError('Max retry attempts reached.')));
+    }
+  }
+
+  // utils
   public async getLogs(maxLines = 1000) {
     if (!this.driverInfo) {
       throw new UHFSocketError('Driver info not available. Ensure that the UHF socket server is running and the /var/uhf/uhf.var file exists.');
@@ -113,5 +129,20 @@ export class UhfSockClient {
     } catch (error) {
       throw new UHFSocketError('Error reading logs: ' + String(error));
     }
+  }
+
+  public killProcess() {
+    if (this.driverInfo?.pid) {
+      try {
+        // verify sudo privileges
+        if (process.getuid && process.getuid() !== 0) {
+          throw new UHFSocketError('Insufficient privileges to kill the process. Please run the application with sudo or as root.');
+        }
+        process.kill(this.driverInfo.pid);
+        this.subject.next(new Message(SockEvent.EXIT, null));
+      } catch (error) {
+        console.error('Error killing process:', error);
+      }
+    } else { throw new UHFSocketError('Driver PID not available. Ensure that the UHF socket server is running and the /var/uhf/uhf.var file exists.'); }
   }
 }
