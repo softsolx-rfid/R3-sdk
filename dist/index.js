@@ -89,8 +89,10 @@ var UhfSockClient = class _UhfSockClient {
   constructor() {
     this.subject = new import_rxjs.Subject();
     this._client = null;
-    this.retryAttempts = 0;
     this.driverInfo = null;
+    // utils
+    this.retryAttempts = 0;
+    this.dataBuffer = "";
     if (_UhfSockClient.instance) {
       return _UhfSockClient.instance;
     }
@@ -130,7 +132,14 @@ var UhfSockClient = class _UhfSockClient {
         return;
       }
       try {
-        const message = JSON.parse(data.toString());
+        this.dataBuffer += data.toString();
+        const line = this.dataBuffer.indexOf("\n");
+        if (line === -1) {
+          return;
+        }
+        const messageStr = this.dataBuffer.slice(0, line);
+        this.dataBuffer = this.dataBuffer.slice(line + 1);
+        const message = JSON.parse(messageStr);
         this.subject.next(new Message(message.event, message.data));
       } catch (error) {
         if (error instanceof SyntaxError) {
