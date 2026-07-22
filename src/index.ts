@@ -24,7 +24,7 @@ class UhfSocket {
 
   public inicialice() {
     if (UhfSocket.started) {
-      return;
+      throw new UHFSocketError('UHF Socket is already started. Please stop it before initializing again.');
     }
     UhfSocket.started = true;
     this.connection.start();
@@ -32,6 +32,9 @@ class UhfSocket {
   }
 
   public stop() {
+    if(!UhfSocket.started) {
+      throw new UHFSocketError('UHF Socket is not started. Please start it before stopping.');
+    }
     this.connection.stop();
     UhfSocket.subscriptions.forEach(subscription => subscription.unsubscribe());
     UhfSocket.subscriptions = [];

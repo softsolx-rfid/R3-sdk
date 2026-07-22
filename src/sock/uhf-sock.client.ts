@@ -45,6 +45,9 @@ export class UhfSockClient {
   }
 
   public start() {
+    if (this._client) {
+      throw new UHFSocketError('Client is already started. Please stop it before starting again.');
+    }
     if (!this.driverInfo) {
       throw new UHFSocketError('Driver info not available. Ensure that the UHF socket server is running and the /var/uhf/uhf.var file exists.');
     }
@@ -88,9 +91,10 @@ export class UhfSockClient {
   public stop() {
     if (this._client) {
       this.client.end();
-      this.client.destroy();
       this._client = null;
       this.subject.next(new Message(SockEvent.DISCONNECTED, null));
+    } else {
+      throw new UHFSocketError('Client is not initialized. Call start() first.');
     }
   }
 
@@ -135,6 +139,7 @@ export class UhfSockClient {
     if (this.driverInfo?.pid) {
       try {
         // verify sudo privileges
+        this.client.destroy();
         if (process.getuid && process.getuid() !== 0) {
           throw new UHFSocketError('Insufficient privileges to kill the process. Please run the application with sudo or as root.');
         }
