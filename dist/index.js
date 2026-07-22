@@ -273,6 +273,9 @@ var _UhfSocket = class _UhfSocket {
     }
     _UhfSocket.instance = this;
   }
+  get isStarted() {
+    return this.connection._client !== null;
+  }
   inicialice() {
     if (this.connection._client) {
       throw new UHFSocketError(

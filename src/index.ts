@@ -21,6 +21,10 @@ class UhfSocket {
         UhfSocket.instance = this;
     }
 
+    public get isStarted() {
+        return this.connection._client !== null;
+    }
+
     public inicialice() {
         if (this.connection._client) {
             throw new UHFSocketError(

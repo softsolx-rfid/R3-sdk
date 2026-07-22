@@ -99,6 +99,7 @@ declare class UhfSocket {
     private static subscriptions;
     private static instance;
     constructor();
+    get isStarted(): boolean;
     inicialice(): void;
     stop(): void;
     get observable(): rxjs.Observable<Message<any>>;
