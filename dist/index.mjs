@@ -797,12 +797,11 @@ var _UhfSocket = class _UhfSocket {
 };
 _UhfSocket.subscriptions = [];
 var UhfSocket = _UhfSocket;
-var index_default = UhfSocket;
 export {
   Antenna,
   Drivers,
   SendSockEvent,
   SockEvent,
   UHFSocketError,
-  index_default as default
+  UhfSocket
 };

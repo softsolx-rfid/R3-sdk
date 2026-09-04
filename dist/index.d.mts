@@ -116,4 +116,4 @@ declare class UhfSocket {
     getLogs(maxLines?: number): Promise<string>;
 }
 
-export { Antenna, Drivers, SendSockEvent, SockEvent, UHFSocketError, UhfSocket as default };
+export { Antenna, Drivers, SendSockEvent, SockEvent, UHFSocketError, UhfSocket };

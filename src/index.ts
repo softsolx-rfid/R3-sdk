@@ -114,5 +114,4 @@ class UhfSocket {
     }
 }
 
-export default UhfSocket;
-export { SockEvent, SendSockEvent, Antenna, UHFSocketError };
+export { SockEvent, SendSockEvent, Antenna, UHFSocketError, UhfSocket };

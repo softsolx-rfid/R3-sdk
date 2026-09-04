@@ -35,7 +35,7 @@ __export(index_exports, {
   SendSockEvent: () => SendSockEvent,
   SockEvent: () => SockEvent,
   UHFSocketError: () => UHFSocketError,
-  default: () => index_default
+  UhfSocket: () => UhfSocket
 });
 module.exports = __toCommonJS(index_exports);
 
@@ -838,12 +838,12 @@ var _UhfSocket = class _UhfSocket {
 };
 _UhfSocket.subscriptions = [];
 var UhfSocket = _UhfSocket;
-var index_default = UhfSocket;
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
   Antenna,
   Drivers,
   SendSockEvent,
   SockEvent,
-  UHFSocketError
+  UHFSocketError,
+  UhfSocket
 });

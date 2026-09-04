@@ -1,6 +1,5 @@
 import UhfSocket, { Drivers } from "./dist/index.mjs";
-import { SockEvent, Antenna } from "./dist/index.mjs";
-import { exec } from "child_process";
+import { SockEvent } from "./dist/index.mjs";
 
 const socket = new UhfSocket(Drivers.SERIAL_H10);
 
