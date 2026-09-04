@@ -1,4 +1,4 @@
-import UhfSocket, { Drivers } from "./dist/index.mjs";
+import { Drivers, UhfSocket } from "./dist/index.mjs";
 import { SockEvent } from "./dist/index.mjs";
 
 const socket = new UhfSocket(Drivers.SERIAL_H10);
@@ -12,6 +12,9 @@ const socket = new UhfSocket(Drivers.SERIAL_H10);
     socket.on(SockEvent.GET_POWER, (message) => {
         console.log("Received message:", message);
     });
-    socket.send(SockEvent.SET_POWER, { antenna: 0, power: 10 });
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    socket.on(SockEvent.TAG, (message) => {
+        console.log("Received TAG:", message);
+    });
+    socket.send(SockEvent.SET_POWER, { antenna: 0, power: 15 });
+    await new Promise((resolve) => setTimeout(resolve, 10000));
 })();

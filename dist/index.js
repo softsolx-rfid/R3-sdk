@@ -585,9 +585,18 @@ var HexapadDriver = class extends BaseDriver {
       this.port.on("data", (data) => {
         const chunk = data.toString();
         this.messageBuffer += chunk;
-        if (chunk.includes(">")) {
-          this.subjectRaw.next(this.messageBuffer.replace(">", ""));
+        if (chunk.includes("\r\n")) {
+          const message = this.messageBuffer.replace(">", "");
           this.messageBuffer = "";
+          this.subjectRaw.next(message);
+          if (!this.cronIsRunning) {
+            this.subject.next(
+              new Message(
+                "TAG" /* TAG */,
+                message.replace("\r\n", "").toUpperCase()
+              )
+            );
+          }
         }
       });
       this.port.on("error", (err) => {
