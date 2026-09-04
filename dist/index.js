@@ -31,6 +31,7 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 var index_exports = {};
 __export(index_exports, {
   Antenna: () => Antenna,
+  Drivers: () => Drivers,
   SendSockEvent: () => SendSockEvent,
   SockEvent: () => SockEvent,
   UHFSocketError: () => UHFSocketError,
@@ -38,21 +39,39 @@ __export(index_exports, {
 });
 module.exports = __toCommonJS(index_exports);
 
-// src/messages/dto/message.ts
-var Message = class {
-  constructor(event, data) {
-    this.event = event;
-    this.data = data;
-  }
-  toJson() {
-    return JSON.stringify({
-      event: this.event,
-      data: this.data
-    });
+// src/@types/antenna.enum.ts
+var Antenna = /* @__PURE__ */ ((Antenna2) => {
+  Antenna2[Antenna2["ALL"] = 0] = "ALL";
+  Antenna2[Antenna2["ANTENNA_1"] = 1] = "ANTENNA_1";
+  Antenna2[Antenna2["ANTENNA_2"] = 2] = "ANTENNA_2";
+  Antenna2[Antenna2["ANTENNA_3"] = 3] = "ANTENNA_3";
+  Antenna2[Antenna2["ANTENNA_4"] = 4] = "ANTENNA_4";
+  return Antenna2;
+})(Antenna || {});
+
+// src/errors/uhf-sock.error.ts
+var UHFSocketError = class extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "UHFSocketError";
   }
 };
 
-// src/sock/events.enum.ts
+// src/driver/send-events.enum.ts
+var SendSockEvent = /* @__PURE__ */ ((SendSockEvent2) => {
+  SendSockEvent2["DISCONNECTED"] = "DISCONNECTED";
+  SendSockEvent2["START"] = "START";
+  SendSockEvent2["STOP"] = "STOP";
+  SendSockEvent2["RESET"] = "RESET";
+  SendSockEvent2["SET_POWER"] = "SET_POWER";
+  SendSockEvent2["GET_POWER"] = "GET_POWER";
+  SendSockEvent2["SET_BEEP"] = "SET_BEEP";
+  SendSockEvent2["GET_BEEP"] = "GET_BEEP";
+  SendSockEvent2["EXIT"] = "EXIT";
+  return SendSockEvent2;
+})(SendSockEvent || {});
+
+// src/driver/events.enum.ts
 var SockEvent = /* @__PURE__ */ ((SockEvent2) => {
   SockEvent2["ERROR"] = "ERROR";
   SockEvent2["CONNECTED"] = "CONNECTED";
@@ -70,34 +89,49 @@ var SockEvent = /* @__PURE__ */ ((SockEvent2) => {
   return SockEvent2;
 })(SockEvent || {});
 
-// src/sock/uhf-sock.client.ts
+// src/driver/sock-r3/uhf-sock.driver.ts
 var import_net = __toESM(require("net"));
 var import_rxjs = require("rxjs");
 var import_fs = require("fs");
+var fs = __toESM(require("fs/promises"));
 
-// src/errors/uhf-sock.error.ts
-var UHFSocketError = class extends Error {
-  constructor(message) {
-    super(message);
-    this.name = "UHFSocketError";
+// src/messages/dto/message.ts
+var Message = class {
+  constructor(event, data) {
+    this.event = event;
+    this.data = data;
+  }
+  toJson() {
+    return JSON.stringify({
+      event: this.event,
+      data: this.data
+    });
   }
 };
 
-// src/sock/uhf-sock.client.ts
-var fs = __toESM(require("fs/promises"));
-var UhfSockClient = class _UhfSockClient {
+// src/driver/base-driver.abstract.ts
+var BaseDriver = class {
+};
+
+// src/driver/sock-r3/uhf-sock.driver.ts
+var UhfSockDriver = class _UhfSockDriver extends BaseDriver {
   constructor() {
+    super();
     this.subject = new import_rxjs.Subject();
     this._client = null;
     this.driverInfo = null;
     // utils
     this.retryAttempts = 0;
     this.dataBuffer = "";
-    if (_UhfSockClient.instance) {
-      return _UhfSockClient.instance;
+    this.name = "uhf-socket-r3" /* UHF_SOCKET_R3 */;
+    if (_UhfSockDriver.instance) {
+      return _UhfSockDriver.instance;
     }
     this.setup();
-    _UhfSockClient.instance = this;
+    _UhfSockDriver.instance = this;
+  }
+  get isRunning() {
+    return this._client !== null;
   }
   setup() {
     try {
@@ -197,6 +231,29 @@ var UhfSockClient = class _UhfSockClient {
       new Message("ERROR" /* ERROR */, new UHFSocketError(message))
     );
   }
+  // public methods from abstraction
+  on(event, callback) {
+    const subscription = this.observable.subscribe(
+      (message) => {
+        if (message.event === event) {
+          callback(message);
+        }
+      }
+    );
+    return subscription;
+  }
+  onAll(callback) {
+    const subscription = this.observable.subscribe(
+      (message) => {
+        callback(message);
+      }
+    );
+    return subscription;
+  }
+  send(event, data) {
+    const message = new Message(event, data);
+    this.sendMessage(message);
+  }
   // utils
   async getLogs(maxLines = 1e3) {
     if (!this.driverInfo) {
@@ -240,44 +297,40 @@ var UhfSockClient = class _UhfSockClient {
   }
 };
 
-// src/sock/send-events.enum.ts
-var SendSockEvent = /* @__PURE__ */ ((SendSockEvent2) => {
-  SendSockEvent2["DISCONNECTED"] = "DISCONNECTED";
-  SendSockEvent2["START"] = "START";
-  SendSockEvent2["STOP"] = "STOP";
-  SendSockEvent2["RESET"] = "RESET";
-  SendSockEvent2["SET_POWER"] = "SET_POWER";
-  SendSockEvent2["GET_POWER"] = "GET_POWER";
-  SendSockEvent2["SET_BEEP"] = "SET_BEEP";
-  SendSockEvent2["GET_BEEP"] = "GET_BEEP";
-  SendSockEvent2["EXIT"] = "EXIT";
-  return SendSockEvent2;
-})(SendSockEvent || {});
-
-// src/@types/antenna.enum.ts
-var Antenna = /* @__PURE__ */ ((Antenna2) => {
-  Antenna2[Antenna2["ALL"] = 0] = "ALL";
-  Antenna2[Antenna2["ANTENNA_1"] = 1] = "ANTENNA_1";
-  Antenna2[Antenna2["ANTENNA_2"] = 2] = "ANTENNA_2";
-  Antenna2[Antenna2["ANTENNA_3"] = 3] = "ANTENNA_3";
-  Antenna2[Antenna2["ANTENNA_4"] = 4] = "ANTENNA_4";
-  return Antenna2;
-})(Antenna || {});
-
 // src/index.ts
+var Drivers = /* @__PURE__ */ ((Drivers2) => {
+  Drivers2["UHF_SOCKET_R3"] = "uhf-socket-r3";
+  Drivers2["SERIAL_H10"] = "serial-h10";
+  return Drivers2;
+})(Drivers || {});
 var _UhfSocket = class _UhfSocket {
-  constructor() {
-    this.connection = new UhfSockClient();
+  constructor(driver) {
+    this._connection = null;
     if (_UhfSocket.instance) {
       return _UhfSocket.instance;
     }
+    switch (driver) {
+      case "uhf-socket-r3" /* UHF_SOCKET_R3 */:
+        this._connection = new UhfSockDriver();
+        break;
+      default:
+        throw new UHFSocketError("Unsupported driver");
+    }
     _UhfSocket.instance = this;
   }
+  get connection() {
+    if (!this._connection) {
+      throw new UHFSocketError(
+        "Connection is not initialized. Call inicialice() first."
+      );
+    }
+    return this._connection;
+  }
   get isStarted() {
-    return this.connection._client !== null;
+    return this.connection.isRunning;
   }
   inicialice() {
-    if (this.connection._client) {
+    if (this.connection.isRunning) {
       throw new UHFSocketError(
         "UHF Socket is already started. Please stop it before initializing again."
       );
@@ -292,7 +345,7 @@ var _UhfSocket = class _UhfSocket {
     });
   }
   stop() {
-    if (!this.connection._client) {
+    if (!this.connection.isRunning) {
       throw new UHFSocketError(
         "UHF Socket is not started. Please start it before stopping."
       );
@@ -303,32 +356,18 @@ var _UhfSocket = class _UhfSocket {
     );
     _UhfSocket.subscriptions = [];
   }
-  get observable() {
-    return this.connection.observable;
-  }
   send(event, data) {
-    const message = new Message(event, data);
-    this.connection.sendMessage(message);
+    this.connection.send(event, data);
   }
   on(event, callback) {
-    const subscription = this.connection.observable.subscribe(
-      (message) => {
-        if (message.event === event) {
-          callback(message);
-        }
-      }
-    );
-    _UhfSocket.subscriptions.push(subscription);
-    return subscription;
+    const sub = this.connection.on(event, callback);
+    _UhfSocket.subscriptions.push(sub);
+    return sub;
   }
   onAll(callback) {
-    const subscription = this.connection.observable.subscribe(
-      (message) => {
-        callback(message);
-      }
-    );
-    _UhfSocket.subscriptions.push(subscription);
-    return subscription;
+    const sub = this.connection.onAll(callback);
+    _UhfSocket.subscriptions.push(sub);
+    return sub;
   }
   killProcess() {
     this.connection.killProcess();
@@ -344,6 +383,7 @@ var index_default = UhfSocket;
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
   Antenna,
+  Drivers,
   SendSockEvent,
   SockEvent,
   UHFSocketError

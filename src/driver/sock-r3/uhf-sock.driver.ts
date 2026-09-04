@@ -1,13 +1,18 @@
 import net from "net";
-import { Message } from "../messages/dto/message";
-import { Subject } from "rxjs";
-import { SockEvent } from "./events.enum";
+import { Subject, Subscription } from "rxjs";
+import { SockEvent } from "../events.enum";
 import { readFileSync } from "fs";
 import { UHFSocketError } from "@/errors/uhf-sock.error";
 import * as fs from "fs/promises";
+import { Message } from "@/messages/dto/message";
+import { BaseDriver } from "../base-driver.abstract";
+import { EventMap } from "@/@types/event-map";
+import { SendSockEvent } from "../send-events.enum";
+import { SendEventMap } from "@/@types/send-event-map";
+import { Drivers } from "@/index";
 
-export class UhfSockClient {
-    private static instance: UhfSockClient;
+export class UhfSockDriver extends BaseDriver {
+    private static instance: UhfSockDriver;
     private subject = new Subject<Message>();
     public _client: net.Socket | null = null;
     private driverInfo: {
@@ -20,12 +25,18 @@ export class UhfSockClient {
     private retryAttempts = 0;
     private dataBuffer = "";
 
+    public readonly name = Drivers.UHF_SOCKET_R3;
+    public get isRunning() {
+        return this._client !== null;
+    }
+
     constructor() {
-        if (UhfSockClient.instance) {
-            return UhfSockClient.instance;
+        super();
+        if (UhfSockDriver.instance) {
+            return UhfSockDriver.instance;
         }
         this.setup();
-        UhfSockClient.instance = this;
+        UhfSockDriver.instance = this;
     }
 
     private setup() {
@@ -112,7 +123,7 @@ export class UhfSockClient {
         }
     }
 
-    public sendMessage<T>(message: Message<T>) {
+    private sendMessage<T>(message: Message<T>) {
         this.client.write(message.toJson() + "\n");
     }
 
@@ -136,6 +147,36 @@ export class UhfSockClient {
         this.subject.next(
             new Message(SockEvent.ERROR, new UHFSocketError(message)),
         );
+    }
+
+    // public methods from abstraction
+
+    public on<K extends SockEvent>(
+        event: K,
+        callback: EventMap[K],
+    ): Subscription {
+        const subscription: Subscription = this.observable.subscribe(
+            (message) => {
+                if (message.event === event) {
+                    callback(message as any);
+                }
+            },
+        );
+        return subscription;
+    }
+
+    public onAll(callback: (message: Message) => void) {
+        const subscription: Subscription = this.observable.subscribe(
+            (message) => {
+                callback(message);
+            },
+        );
+        return subscription;
+    }
+
+    public send<K extends SendSockEvent>(event: K, data: SendEventMap[K]) {
+        const message = new Message(event as unknown as SockEvent, data);
+        this.sendMessage(message);
     }
 
     // utils

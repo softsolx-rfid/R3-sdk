@@ -1,12 +1,12 @@
-import { SockEvent } from "@/sock/events.enum";
+import { SockEvent } from "@/driver/events.enum";
 import { Message } from "@/messages/dto/message";
 
 export class ErrorMessage extends Message<string> {
-  constructor(data: string) {
-    super(SockEvent.ERROR, data);
-  }
+    constructor(data: string) {
+        super(SockEvent.ERROR, data);
+    }
 
-  public static create(data: string): ErrorMessage {
-    return new ErrorMessage(data);
-  }
+    public static create(data: string): ErrorMessage {
+        return new ErrorMessage(data);
+    }
 }

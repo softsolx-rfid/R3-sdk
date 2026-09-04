@@ -1,4 +1,3 @@
-import * as rxjs from 'rxjs';
 import { Subscription } from 'rxjs';
 
 declare enum SockEvent {
@@ -94,15 +93,19 @@ declare class UHFSocketError extends Error {
     constructor(message: string);
 }
 
+declare enum Drivers {
+    UHF_SOCKET_R3 = "uhf-socket-r3",
+    SERIAL_H10 = "serial-h10"
+}
 declare class UhfSocket {
-    private connection;
+    private _connection;
     private static subscriptions;
     private static instance;
-    constructor();
+    constructor(driver: Drivers);
+    private get connection();
     get isStarted(): boolean;
     inicialice(): void;
     stop(): void;
-    get observable(): rxjs.Observable<Message<any>>;
     send<K extends SendSockEvent>(event: K, data: SendEventMap[K]): void;
     on<K extends SockEvent>(event: K, callback: EventMap[K]): Subscription;
     onAll(callback: (message: Message) => void): Subscription;
@@ -110,4 +113,4 @@ declare class UhfSocket {
     getLogs(maxLines?: number): Promise<string>;
 }
 
-export { Antenna, SendSockEvent, SockEvent, UHFSocketError, UhfSocket as default };
+export { Antenna, Drivers, SendSockEvent, SockEvent, UHFSocketError, UhfSocket as default };

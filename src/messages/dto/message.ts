@@ -1,18 +1,18 @@
-import { SockEvent } from "../../sock/events.enum";
+import { SockEvent } from "@/driver/events.enum";
 
 export class Message<T = any> {
-  public event: SockEvent;
-  public data: T;
+    public event: SockEvent;
+    public data: T;
 
-  constructor(event: SockEvent, data: T) {
-    this.event = event;
-    this.data = data;
-  }
+    constructor(event: SockEvent, data: T) {
+        this.event = event;
+        this.data = data;
+    }
 
-  public toJson(): string {
-    return JSON.stringify({
-      event: this.event,
-      data: this.data
-    });
-  }
+    public toJson(): string {
+        return JSON.stringify({
+            event: this.event,
+            data: this.data,
+        });
+    }
 }
