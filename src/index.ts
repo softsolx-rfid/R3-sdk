@@ -3,7 +3,6 @@ import { Message } from "./messages/dto/message";
 import { EventMap } from "./@types/event-map";
 import { SendEventMap } from "./@types/send-event-map";
 import { Antenna } from "./@types/antenna.enum";
-import { UHFSocketSetup } from "./dto/uhf-socket-setup";
 import { UHFSocketError } from "./errors/uhf-sock.error";
 import { BaseDriver } from "./driver/base-driver.abstract";
 import { SendSockEvent } from "./driver/send-events.enum";

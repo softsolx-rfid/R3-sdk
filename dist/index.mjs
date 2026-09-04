@@ -354,10 +354,42 @@ var USBPort = class _USBPort {
     const usbPortInstance = new _USBPort();
     return usbPortInstance.findUSBPorts();
   }
+  async findUnix() {
+    try {
+      const usbPortList = await execPromise("ls -a /dev/ | grep ttyACM0");
+      const usbPort = usbPortList.split("\n")[0];
+      if (!usbPort || usbPort.trim() === "") {
+        return null;
+      }
+      return usbPort;
+    } catch (error) {
+      return null;
+    }
+  }
+  async findMac() {
+    try {
+      const usbPortList = await execPromise(
+        "ls -a /dev/ | grep cu.usbmodem"
+      );
+      const usbPort = usbPortList.split("\n")[0];
+      if (!usbPort || usbPort.trim() === "") {
+        return null;
+      }
+      return usbPort;
+    } catch (error) {
+      return null;
+    }
+  }
   async findUSBPorts() {
-    const usbPortList = await execPromise("ls -a /dev/ | grep cu.usbmodem");
-    const usbPort = usbPortList.split("\n")[0];
-    return usbPort;
+    const unix = await this.findUnix();
+    if (unix) {
+      return unix;
+    }
+    const mac = await this.findMac();
+    if (mac) {
+      return mac;
+    }
+    throw new UHFSocketError("No USB ports found");
   }
 };
 

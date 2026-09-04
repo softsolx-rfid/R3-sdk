@@ -8,7 +8,6 @@ import { EventMap } from "@/@types/event-map";
 import { Message } from "@/messages/dto/message";
 import { SerialPort } from "serialport";
 import { promises as fs } from "fs";
-import { execPromise } from "@/utils/exec-promise";
 import path from "path";
 import { ReadTag } from "./commands/read-tag";
 import { USBPort } from "./utils/usb-port";
