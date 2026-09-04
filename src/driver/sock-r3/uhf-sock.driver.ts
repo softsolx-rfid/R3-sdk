@@ -113,6 +113,8 @@ export class UhfSockDriver extends BaseDriver {
         this.client.on("end", () => {
             this.stop();
         });
+
+        return Promise.resolve();
     }
 
     public stop() {
@@ -121,6 +123,7 @@ export class UhfSockDriver extends BaseDriver {
             this._client = null;
             this.emit(SockEvent.DISCONNECTED, null);
         }
+        return Promise.resolve();
     }
 
     private sendMessage<T>(message: Message<T>) {
@@ -177,6 +180,10 @@ export class UhfSockDriver extends BaseDriver {
     public send<K extends SendSockEvent>(event: K, data: SendEventMap[K]) {
         const message = new Message(event as unknown as SockEvent, data);
         this.sendMessage(message);
+    }
+
+    public async sendRaw(data: string) {
+        this.client.write(data);
     }
 
     // utils

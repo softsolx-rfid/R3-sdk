@@ -9,6 +9,7 @@ import { BaseDriver } from "./driver/base-driver.abstract";
 import { SendSockEvent } from "./driver/send-events.enum";
 import { SockEvent } from "./driver/events.enum";
 import { UhfSockDriver } from "./driver/sock-r3/uhf-sock.driver";
+import { HexapadDriver } from "./driver/hexapad-10/hexapad-driver";
 
 export enum Drivers {
     UHF_SOCKET_R3 = "uhf-socket-r3",
@@ -27,6 +28,9 @@ class UhfSocket {
         switch (driver) {
             case Drivers.UHF_SOCKET_R3:
                 this._connection = new UhfSockDriver();
+                break;
+            case Drivers.SERIAL_H10:
+                this._connection = new HexapadDriver();
                 break;
             default:
                 throw new UHFSocketError("Unsupported driver");
@@ -47,29 +51,31 @@ class UhfSocket {
         return this.connection.isRunning;
     }
 
-    public inicialice() {
-        if (this.connection.isRunning) {
-            throw new UHFSocketError(
-                "UHF Socket is already started. Please stop it before initializing again.",
-            );
-        }
-        this.connection.start();
-        this.send(SendSockEvent.RESET, null);
-        this.on(SockEvent.DISCONNECTED, () => {
-            UhfSocket.subscriptions.forEach((subscription) =>
-                subscription.unsubscribe(),
-            );
-            UhfSocket.subscriptions = [];
-        });
+    public async inicialice() {
+        try {
+            if (this.connection.isRunning) {
+                throw new UHFSocketError(
+                    "UHF Socket is already started. Please stop it before initializing again.",
+                );
+            }
+            await this.connection.start();
+            this.send(SendSockEvent.RESET, null);
+            this.on(SockEvent.DISCONNECTED, () => {
+                UhfSocket.subscriptions.forEach((subscription) =>
+                    subscription.unsubscribe(),
+                );
+                UhfSocket.subscriptions = [];
+            });
+        } catch (error) {}
     }
 
-    public stop() {
+    public async stop() {
         if (!this.connection.isRunning) {
             throw new UHFSocketError(
                 "UHF Socket is not started. Please start it before stopping.",
             );
         }
-        this.connection.stop();
+        await this.connection.stop();
         UhfSocket.subscriptions.forEach((subscription) =>
             subscription.unsubscribe(),
         );
@@ -78,6 +84,10 @@ class UhfSocket {
 
     public send<K extends SendSockEvent>(event: K, data: SendEventMap[K]) {
         this.connection.send(event, data);
+    }
+
+    public async sendRaw(data: string): Promise<void> {
+        await this.connection.sendRaw(data);
     }
 
     public on<K extends SockEvent>(

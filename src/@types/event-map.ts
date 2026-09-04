@@ -24,4 +24,5 @@ export type EventMap = {
         }>,
     ) => void;
     [SockEvent.EXIT]: (message: Message<null>) => void;
+    [SockEvent.DATA]: (message: Message<string>) => void;
 };

@@ -25,12 +25,12 @@ export abstract class BaseDriver {
     /**
      * @description Starts the driver process.
      */
-    public abstract start(): void;
+    public abstract start(): Promise<void>;
 
     /**
      * @description Stops the driver process.
      */
-    public abstract stop(): void;
+    public abstract stop(): Promise<void>;
 
     /**
      * @description Sends predefined message to the driver.
@@ -41,6 +41,12 @@ export abstract class BaseDriver {
         event: K,
         data: SendEventMap[K],
     ): void;
+
+    /**
+     * @description Sends raw data to the driver (!!! ONLY for advanced use cases OR DEV STAGE).
+     * @param data The raw data to send.
+     */
+    public abstract sendRaw(data: string): Promise<void>;
 
     /**
      * @description Subscribes to a specific event from the driver.

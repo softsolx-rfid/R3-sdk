@@ -13,7 +13,8 @@ declare enum SockEvent {
     GET_BEEP = "GET_BEEP",
     TAG = "TAG",
     TAG_RAW = "TAG_RAW",
-    EXIT = "EXIT"
+    EXIT = "EXIT",
+    DATA = "DATA"
 }
 
 declare class Message<T = any> {
@@ -52,6 +53,7 @@ type EventMap = {
         user: string;
     }>) => void;
     [SockEvent.EXIT]: (message: Message<null>) => void;
+    [SockEvent.DATA]: (message: Message<string>) => void;
 };
 
 declare enum SendSockEvent {
@@ -104,9 +106,10 @@ declare class UhfSocket {
     constructor(driver: Drivers);
     private get connection();
     get isStarted(): boolean;
-    inicialice(): void;
-    stop(): void;
+    inicialice(): Promise<void>;
+    stop(): Promise<void>;
     send<K extends SendSockEvent>(event: K, data: SendEventMap[K]): void;
+    sendRaw(data: string): Promise<void>;
     on<K extends SockEvent>(event: K, callback: EventMap[K]): Subscription;
     onAll(callback: (message: Message) => void): Subscription;
     killProcess(): void;
