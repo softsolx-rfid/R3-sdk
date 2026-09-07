@@ -103,7 +103,6 @@ class UhfSocket {
 
     public killProcess() {
         this.connection.killProcess();
-        this.stop();
     }
 
     public async getLogs(maxLines = 1000) {

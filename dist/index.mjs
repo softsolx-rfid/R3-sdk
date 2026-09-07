@@ -851,7 +851,6 @@ var UhfSocket = class _UhfSocket {
   }
   killProcess() {
     this.connection.killProcess();
-    this.stop();
   }
   async getLogs(maxLines = 1e3) {
     return await this.connection.getLogs(maxLines);
