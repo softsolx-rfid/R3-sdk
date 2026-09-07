@@ -18,7 +18,7 @@ export enum Drivers {
 class UhfSocket {
     private _connection: BaseDriver | null = null;
     private static subscriptions: Subscription[] = [];
-    private static instance: UhfSocket;
+    private static instance: UhfSocket | null;
 
     constructor(driver: Drivers) {
         if (UhfSocket.instance) {
@@ -79,6 +79,8 @@ class UhfSocket {
             subscription.unsubscribe(),
         );
         UhfSocket.subscriptions = [];
+        this._connection = null;
+        UhfSocket.instance = null;
     }
 
     public send<K extends SendSockEvent>(event: K, data: SendEventMap[K]) {

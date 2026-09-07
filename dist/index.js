@@ -824,6 +824,8 @@ var _UhfSocket = class _UhfSocket {
       (subscription) => subscription.unsubscribe()
     );
     _UhfSocket.subscriptions = [];
+    this._connection = null;
+    _UhfSocket.instance = null;
   }
   send(event, data) {
     this.connection.send(event, data);
