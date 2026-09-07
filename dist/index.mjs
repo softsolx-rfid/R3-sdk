@@ -121,6 +121,7 @@ var _UhfSockDriver = class _UhfSockDriver extends BaseDriver {
         "Driver info not available. Ensure that the UHF socket server is running and the /var/uhf/uhf.var file exists."
       );
     }
+    this.subject = new Subject();
     this._client = net.createConnection(
       this.driverInfo.socketPath,
       () => this.emit("CONNECTED" /* CONNECTED */, null)
@@ -167,6 +168,7 @@ var _UhfSockDriver = class _UhfSockDriver extends BaseDriver {
     if (this._client) {
       this.client.end();
       this._client = null;
+      this.subject.complete();
       _UhfSockDriver.instance = null;
       this.emit("DISCONNECTED" /* DISCONNECTED */, null);
     }
@@ -761,7 +763,7 @@ var Drivers = /* @__PURE__ */ ((Drivers2) => {
   Drivers2["SERIAL_H10"] = "serial-h10";
   return Drivers2;
 })(Drivers || {});
-var _UhfSocket = class _UhfSocket {
+var UhfSocket = class _UhfSocket {
   constructor(driver) {
     this._connection = null;
     this.instanceDeleted = false;
@@ -805,12 +807,6 @@ var _UhfSocket = class _UhfSocket {
       }
       await this.connection.start();
       this.send("RESET" /* RESET */, null);
-      this.on("DISCONNECTED" /* DISCONNECTED */, () => {
-        _UhfSocket.subscriptions.forEach(
-          (subscription) => subscription.unsubscribe()
-        );
-        _UhfSocket.subscriptions = [];
-      });
     } catch (error) {
     }
   }
@@ -821,12 +817,10 @@ var _UhfSocket = class _UhfSocket {
       );
     }
     await this.connection.stop();
-    _UhfSocket.subscriptions.forEach(
-      (subscription) => subscription.unsubscribe()
-    );
-    _UhfSocket.subscriptions = [];
     this._connection = null;
     _UhfSocket.instance = null;
+    this.instanceDeleted = true;
+    await new Promise((resolve) => setTimeout(resolve, 1e3));
   }
   send(event, data) {
     this.connection.send(event, data);
@@ -836,12 +830,10 @@ var _UhfSocket = class _UhfSocket {
   }
   on(event, callback) {
     const sub = this.connection.on(event, callback);
-    _UhfSocket.subscriptions.push(sub);
     return sub;
   }
   onAll(callback) {
     const sub = this.connection.onAll(callback);
-    _UhfSocket.subscriptions.push(sub);
     return sub;
   }
   killProcess() {
@@ -852,8 +844,6 @@ var _UhfSocket = class _UhfSocket {
     return await this.connection.getLogs(maxLines);
   }
 };
-_UhfSocket.subscriptions = [];
-var UhfSocket = _UhfSocket;
 export {
   Antenna,
   Drivers,

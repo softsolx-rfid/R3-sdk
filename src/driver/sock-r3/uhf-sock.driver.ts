@@ -70,6 +70,7 @@ export class UhfSockDriver extends BaseDriver {
                 "Driver info not available. Ensure that the UHF socket server is running and the /var/uhf/uhf.var file exists.",
             );
         }
+        this.subject = new Subject<Message>();
         this._client = net.createConnection(this.driverInfo.socketPath, () =>
             this.emit(SockEvent.CONNECTED, null),
         );
@@ -121,6 +122,7 @@ export class UhfSockDriver extends BaseDriver {
         if (this._client) {
             this.client.end();
             this._client = null;
+            this.subject.complete();
             UhfSockDriver.instance = null;
             this.emit(SockEvent.DISCONNECTED, null);
         }

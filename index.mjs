@@ -7,15 +7,15 @@ const socket = new UhfSocket(Drivers.SERIAL_H10);
     console.log("Starting socket...");
     await socket.inicialice();
     console.log("Socket initialized");
-    socket.on(SockEvent.SET_POWER, (message) => {
-        console.log("Received message:", message);
-    });
-    socket.on(SockEvent.GET_POWER, (message) => {
-        console.log("Received message:", message);
-    });
     socket.on(SockEvent.TAG, (message) => {
         console.log("Received TAG:", message);
     });
-    socket.send(SockEvent.SET_POWER, { antenna: 0, power: 15 });
-    await new Promise((resolve) => setTimeout(resolve, 10000));
+    socket.send(SockEvent.RESET, null);
+    await socket.stop();
+    const socket2 = new UhfSocket(Drivers.SERIAL_H10);
+    await socket2.inicialice();
+    socket2.on(SockEvent.TAG, (message) => {
+        console.log("Received TAG on socket2:", message);
+    });
+    await new Promise((resolve) => setTimeout(resolve, 100000));
 })();

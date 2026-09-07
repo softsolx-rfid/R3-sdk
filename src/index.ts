@@ -17,7 +17,6 @@ export enum Drivers {
 
 class UhfSocket {
     private _connection: BaseDriver | null = null;
-    private static subscriptions: Subscription[] = [];
     private static instance: UhfSocket | null;
     private instanceDeleted = false;
 
@@ -65,12 +64,6 @@ class UhfSocket {
             }
             await this.connection.start();
             this.send(SendSockEvent.RESET, null);
-            this.on(SockEvent.DISCONNECTED, () => {
-                UhfSocket.subscriptions.forEach((subscription) =>
-                    subscription.unsubscribe(),
-                );
-                UhfSocket.subscriptions = [];
-            });
         } catch (error) {}
     }
 
@@ -81,12 +74,10 @@ class UhfSocket {
             );
         }
         await this.connection.stop();
-        UhfSocket.subscriptions.forEach((subscription) =>
-            subscription.unsubscribe(),
-        );
-        UhfSocket.subscriptions = [];
         this._connection = null;
         UhfSocket.instance = null;
+        this.instanceDeleted = true;
+        await new Promise((resolve) => setTimeout(resolve, 1000));
     }
 
     public send<K extends SendSockEvent>(event: K, data: SendEventMap[K]) {
@@ -102,13 +93,11 @@ class UhfSocket {
         callback: EventMap[K],
     ): Subscription {
         const sub = this.connection.on(event, callback);
-        UhfSocket.subscriptions.push(sub);
         return sub;
     }
 
     public onAll(callback: (message: Message) => void) {
         const sub = this.connection.onAll(callback);
-        UhfSocket.subscriptions.push(sub);
         return sub;
     }
 
