@@ -74,7 +74,7 @@ var BaseDriver = class {
 };
 
 // src/driver/sock-r3/uhf-sock.driver.ts
-var UhfSockDriver = class _UhfSockDriver extends BaseDriver {
+var _UhfSockDriver = class _UhfSockDriver extends BaseDriver {
   constructor() {
     super();
     this.subject = new Subject();
@@ -167,6 +167,7 @@ var UhfSockDriver = class _UhfSockDriver extends BaseDriver {
     if (this._client) {
       this.client.end();
       this._client = null;
+      _UhfSockDriver.instance = null;
       this.emit("DISCONNECTED" /* DISCONNECTED */, null);
     }
     return Promise.resolve();
@@ -261,6 +262,8 @@ var UhfSockDriver = class _UhfSockDriver extends BaseDriver {
     }
   }
 };
+_UhfSockDriver.instance = null;
+var UhfSockDriver = _UhfSockDriver;
 
 // src/driver/hexapad-10/hexapad-driver.ts
 import { Subject as Subject2 } from "rxjs";
@@ -728,6 +731,7 @@ var Drivers = /* @__PURE__ */ ((Drivers2) => {
 var _UhfSocket = class _UhfSocket {
   constructor(driver) {
     this._connection = null;
+    this.instanceDeleted = false;
     if (_UhfSocket.instance) {
       return _UhfSocket.instance;
     }
@@ -756,6 +760,11 @@ var _UhfSocket = class _UhfSocket {
   }
   async inicialice() {
     try {
+      if (this.instanceDeleted) {
+        throw new UHFSocketError(
+          "UHF Socket instance has been deleted. Please create a new instance."
+        );
+      }
       if (this.connection.isRunning) {
         throw new UHFSocketError(
           "UHF Socket is already started. Please stop it before initializing again."

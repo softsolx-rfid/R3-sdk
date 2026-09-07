@@ -103,6 +103,7 @@ declare class UhfSocket {
     private _connection;
     private static subscriptions;
     private static instance;
+    private instanceDeleted;
     constructor(driver: Drivers);
     private get connection();
     get isStarted(): boolean;

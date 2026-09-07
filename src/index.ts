@@ -19,6 +19,7 @@ class UhfSocket {
     private _connection: BaseDriver | null = null;
     private static subscriptions: Subscription[] = [];
     private static instance: UhfSocket | null;
+    private instanceDeleted = false;
 
     constructor(driver: Drivers) {
         if (UhfSocket.instance) {
@@ -52,6 +53,11 @@ class UhfSocket {
 
     public async inicialice() {
         try {
+            if (this.instanceDeleted) {
+                throw new UHFSocketError(
+                    "UHF Socket instance has been deleted. Please create a new instance.",
+                );
+            }
             if (this.connection.isRunning) {
                 throw new UHFSocketError(
                     "UHF Socket is already started. Please stop it before initializing again.",

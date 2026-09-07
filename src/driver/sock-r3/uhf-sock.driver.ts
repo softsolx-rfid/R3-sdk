@@ -12,7 +12,7 @@ import { SendEventMap } from "@/@types/send-event-map";
 import { Drivers } from "@/index";
 
 export class UhfSockDriver extends BaseDriver {
-    private static instance: UhfSockDriver;
+    private static instance: UhfSockDriver | null = null;
     private subject = new Subject<Message>();
     public _client: net.Socket | null = null;
     private driverInfo: {
@@ -121,6 +121,7 @@ export class UhfSockDriver extends BaseDriver {
         if (this._client) {
             this.client.end();
             this._client = null;
+            UhfSockDriver.instance = null;
             this.emit(SockEvent.DISCONNECTED, null);
         }
         return Promise.resolve();
