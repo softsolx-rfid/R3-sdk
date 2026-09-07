@@ -20,7 +20,10 @@ export class HexapadDriver extends BaseDriver {
     private _port: SerialPort | null = null;
     private subjectRaw = new Subject<string>();
     private messageBuffer = "";
-    private sendMessagePipe: (() => Promise<void>)[] = [];
+    private sendMessagePipe: {
+        fn: () => Promise<void>;
+        message: string;
+    }[] = [];
     private pipeCron: NodeJS.Timeout | null = null;
     private cronIsRunning = false;
 
@@ -48,12 +51,13 @@ export class HexapadDriver extends BaseDriver {
                 return;
             }
             try {
-                const fn = this.sendMessagePipe.shift();
-                if (fn) {
+                const item = this.sendMessagePipe.shift();
+                if (item) {
+                    const { fn, message } = item;
                     this.cronIsRunning = true;
-                    console.log("Executing command from pipe...");
-                    await fn();
-                    console.log("Command executed.");
+                    this.log("Executing command from pipe...", message);
+                    const resp = await fn();
+                    this.log("Command executed.", String(resp));
                     this.cronIsRunning = false;
                 }
             } catch (error) {
@@ -103,35 +107,69 @@ export class HexapadDriver extends BaseDriver {
                 this.log("Serial port error: " + String(err));
             });
             this.startCron();
-            this.log(await ReadTag.execute(this, "on"));
+            await this.sendPromise(SendSockEvent.START, null);
         } catch (error) {
             console.log(error);
             this.subject.next(new Message(SockEvent.ERROR, error));
         }
     }
 
-    private stopCron() {
+    private async stopCron() {
         if (this.pipeCron) {
             clearInterval(this.pipeCron);
             this.pipeCron = null;
+            // finalize all pending messages in the pipe
+            for (const item of this.sendMessagePipe) {
+                const { fn, message } = item;
+                this.log("Finalizing command from pipe...", message);
+                try {
+                    const resp = await fn();
+                    this.log("Command finalized.", String(resp));
+                } catch (error) {
+                    this.log("Error finalizing command.", String(error));
+                }
+            }
+            this.sendMessagePipe = [];
         }
     }
 
     public async stop() {
-        const resp = await ReadTag.execute(this, "off");
+        this.send(SendSockEvent.STOP, null);
         this.port.close();
         this.subject.complete();
         this.subjectRaw.complete();
         this._port = null;
-        this.stopCron();
+        await this.stopCron();
         this.sendMessagePipe = [];
-        this.log(resp);
     }
 
     public send<K extends SendSockEvent>(event: K, data: SendEventMap[K]) {
-        this.sendMessagePipe.push(
-            async () => await this.sendMessagePipeResolver(event, data),
-        );
+        this.sendMessagePipe.push({
+            fn: async () => await this.sendMessagePipeResolver(event, data),
+            message: String(event),
+        });
+    }
+
+    public async sendPromise<K extends SendSockEvent>(
+        event: K,
+        data: SendEventMap[K],
+    ) {
+        return new Promise((resolve, reject) => {
+            this.sendMessagePipe.push({
+                fn: async () => {
+                    try {
+                        const resp = await this.sendMessagePipeResolver(
+                            event,
+                            data,
+                        );
+                        resolve(resp);
+                    } catch (error) {
+                        reject(error);
+                    }
+                },
+                message: String(event),
+            });
+        });
     }
 
     private async sendMessagePipeResolver<K extends SendSockEvent>(

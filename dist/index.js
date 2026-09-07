@@ -552,12 +552,13 @@ var HexapadDriver = class extends BaseDriver {
         return;
       }
       try {
-        const fn = this.sendMessagePipe.shift();
-        if (fn) {
+        const item = this.sendMessagePipe.shift();
+        if (item) {
+          const { fn, message } = item;
           this.cronIsRunning = true;
-          console.log("Executing command from pipe...");
-          await fn();
-          console.log("Command executed.");
+          this.log("Executing command from pipe...", message);
+          const resp = await fn();
+          this.log("Command executed.", String(resp));
           this.cronIsRunning = false;
         }
       } catch (error) {
@@ -606,32 +607,61 @@ var HexapadDriver = class extends BaseDriver {
         this.log("Serial port error: " + String(err));
       });
       this.startCron();
-      this.log(await ReadTag.execute(this, "on"));
+      await this.sendPromise("START" /* START */, null);
     } catch (error) {
       console.log(error);
       this.subject.next(new Message("ERROR" /* ERROR */, error));
     }
   }
-  stopCron() {
+  async stopCron() {
     if (this.pipeCron) {
       clearInterval(this.pipeCron);
       this.pipeCron = null;
+      for (const item of this.sendMessagePipe) {
+        const { fn, message } = item;
+        this.log("Finalizing command from pipe...", message);
+        try {
+          const resp = await fn();
+          this.log("Command finalized.", String(resp));
+        } catch (error) {
+          this.log("Error finalizing command.", String(error));
+        }
+      }
+      this.sendMessagePipe = [];
     }
   }
   async stop() {
-    const resp = await ReadTag.execute(this, "off");
+    this.send("STOP" /* STOP */, null);
     this.port.close();
     this.subject.complete();
     this.subjectRaw.complete();
     this._port = null;
-    this.stopCron();
+    await this.stopCron();
     this.sendMessagePipe = [];
-    this.log(resp);
   }
   send(event, data) {
-    this.sendMessagePipe.push(
-      async () => await this.sendMessagePipeResolver(event, data)
-    );
+    this.sendMessagePipe.push({
+      fn: async () => await this.sendMessagePipeResolver(event, data),
+      message: String(event)
+    });
+  }
+  async sendPromise(event, data) {
+    return new Promise((resolve, reject) => {
+      this.sendMessagePipe.push({
+        fn: async () => {
+          try {
+            const resp = await this.sendMessagePipeResolver(
+              event,
+              data
+            );
+            resolve(resp);
+          } catch (error) {
+            reject(error);
+          }
+        },
+        message: String(event)
+      });
+    });
   }
   async sendMessagePipeResolver(event, data) {
     switch (event) {
