@@ -103,6 +103,9 @@ class UhfSocket {
 
     public killProcess() {
         this.connection.killProcess();
+        this._connection = null;
+        UhfSocket.instance = null;
+        this.instanceDeleted = true;
     }
 
     public async getLogs(maxLines = 1000) {
