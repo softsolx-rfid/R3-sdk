@@ -200,8 +200,8 @@ export class HexapadDriver extends BaseDriver {
                 );
                 break;
             case SendSockEvent.RESET:
-                await ReadTag.execute(this, "off", true);
-                await ReadTag.execute(this, "on", true);
+                await this.sendPromise(SendSockEvent.STOP, null);
+                await this.sendPromise(SendSockEvent.START, null);
                 break;
             case SendSockEvent.GET_POWER:
                 await ReadPower.execute(this, 0, true);

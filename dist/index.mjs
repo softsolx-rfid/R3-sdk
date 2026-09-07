@@ -647,8 +647,8 @@ var HexapadDriver = class extends BaseDriver {
         );
         break;
       case "RESET" /* RESET */:
-        await ReadTag.execute(this, "off", true);
-        await ReadTag.execute(this, "on", true);
+        await this.sendPromise("STOP" /* STOP */, null);
+        await this.sendPromise("START" /* START */, null);
         break;
       case "GET_POWER" /* GET_POWER */:
         await ReadPower.execute(this, 0, true);
