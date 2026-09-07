@@ -247,9 +247,16 @@ export class HexapadDriver extends BaseDriver {
     }
 
     public killProcess() {
+        this.subject.complete();
+        this.subjectRaw.complete();
         if (this._port) {
             this._port.close();
             this._port = null;
+        }
+        if (this.pipeCron) {
+            clearInterval(this.pipeCron);
+            this.pipeCron = null;
+            this.sendMessagePipe = [];
         }
         this.subject.next(
             new Message(

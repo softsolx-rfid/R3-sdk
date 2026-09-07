@@ -213,10 +213,17 @@ export class UhfSockDriver extends BaseDriver {
     }
 
     public killProcess() {
+        this.subject.complete();
+        if (this._client) {
+            this.client.end();
+            this.client.destroy();
+            this._client = null;
+        }
+        UhfSockDriver.instance = null;
         if (this.driverInfo?.pid) {
             try {
                 // verify sudo privileges
-                this.client.destroy();
+
                 if (process.getuid && process.getuid() !== 0) {
                     throw new UHFSocketError(
                         "Insufficient privileges to kill the process. Please run the application with sudo or as root.",

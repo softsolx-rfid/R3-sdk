@@ -244,9 +244,15 @@ var _UhfSockDriver = class _UhfSockDriver extends BaseDriver {
     }
   }
   killProcess() {
+    this.subject.complete();
+    if (this._client) {
+      this.client.end();
+      this.client.destroy();
+      this._client = null;
+    }
+    _UhfSockDriver.instance = null;
     if (this.driverInfo?.pid) {
       try {
-        this.client.destroy();
         if (process.getuid && process.getuid() !== 0) {
           throw new UHFSocketError(
             "Insufficient privileges to kill the process. Please run the application with sudo or as root."
@@ -689,9 +695,16 @@ var HexapadDriver = class extends BaseDriver {
     await ReadTag.execute(this, "on", true);
   }
   killProcess() {
+    this.subject.complete();
+    this.subjectRaw.complete();
     if (this._port) {
       this._port.close();
       this._port = null;
+    }
+    if (this.pipeCron) {
+      clearInterval(this.pipeCron);
+      this.pipeCron = null;
+      this.sendMessagePipe = [];
     }
     this.subject.next(
       new Message(
