@@ -109,8 +109,8 @@ export class HexapadDriver extends BaseDriver {
             this.startCron();
             await this.sendPromise(SendSockEvent.START, null);
         } catch (error) {
-            console.log(error);
             this.subject.next(new Message(SockEvent.ERROR, error));
+            throw error;
         }
     }
 

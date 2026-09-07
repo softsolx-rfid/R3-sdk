@@ -570,8 +570,8 @@ var HexapadDriver = class extends BaseDriver {
       this.startCron();
       await this.sendPromise("START" /* START */, null);
     } catch (error) {
-      console.log(error);
       this.subject.next(new Message("ERROR" /* ERROR */, error));
+      throw error;
     }
   }
   async stopCron() {
