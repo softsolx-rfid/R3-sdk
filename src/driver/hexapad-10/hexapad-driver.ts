@@ -119,6 +119,10 @@ export class HexapadDriver extends BaseDriver {
 
     public async stop() {
         const resp = await ReadTag.execute(this, "off");
+        this.port.close();
+        this.subject.complete();
+        this.subjectRaw.complete();
+        this._port = null;
         this.stopCron();
         this.sendMessagePipe = [];
         this.log(resp);
