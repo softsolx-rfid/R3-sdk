@@ -20,7 +20,7 @@ export class HexapadDriver extends BaseDriver {
     private _port: SerialPort | null = null;
     private subjectRaw = new Subject<string>();
     private messageBuffer = "";
-    private sendMessagePipe: (() => void)[] = [];
+    private sendMessagePipe: (() => Promise<void>)[] = [];
     private pipeCron: NodeJS.Timeout | null = null;
     private cronIsRunning = false;
 
@@ -125,8 +125,8 @@ export class HexapadDriver extends BaseDriver {
     }
 
     public send<K extends SendSockEvent>(event: K, data: SendEventMap[K]) {
-        this.sendMessagePipe.push(() =>
-            this.sendMessagePipeResolver(event, data),
+        this.sendMessagePipe.push(
+            async () => await this.sendMessagePipeResolver(event, data),
         );
     }
 

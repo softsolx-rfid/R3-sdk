@@ -623,7 +623,7 @@ var HexapadDriver = class extends BaseDriver {
   }
   send(event, data) {
     this.sendMessagePipe.push(
-      () => this.sendMessagePipeResolver(event, data)
+      async () => await this.sendMessagePipeResolver(event, data)
     );
   }
   async sendMessagePipeResolver(event, data) {
