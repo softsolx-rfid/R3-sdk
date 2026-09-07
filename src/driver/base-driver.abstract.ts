@@ -17,6 +17,8 @@ export abstract class BaseDriver {
      */
     public abstract getLogs(maxLines: number): Promise<string>;
 
+    public abstract log(...logs: string[]): Promise<void>;
+
     /**
      * @description Kills the driver process.
      */

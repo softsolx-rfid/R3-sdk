@@ -153,13 +153,16 @@ var _UhfSockDriver = class _UhfSockDriver extends BaseDriver {
       }
     });
     this.client.on("close", () => {
+      this.log("Socket closed.");
       this.stop();
     });
     this.client.on("error", (err) => {
       this.emitError("Socket error: " + String(err));
+      this.log("Socket error: " + String(err));
       this.retryConnection();
     });
     this.client.on("end", () => {
+      this.log("Socket ended.");
       this.stop();
     });
     return Promise.resolve();
@@ -241,6 +244,25 @@ var _UhfSockDriver = class _UhfSockDriver extends BaseDriver {
       return lines.slice(-maxLines).join("\n");
     } catch (error) {
       throw new UHFSocketError("Error reading logs: " + String(error));
+    }
+  }
+  async log(...logs) {
+    if (!this.driverInfo) {
+      throw new UHFSocketError(
+        "Driver info not available. Ensure that the UHF socket server is running and the /var/uhf/uhf.var file exists."
+      );
+    }
+    try {
+      const file = await fs.open(this.driverInfo.logsPath, "a");
+      await file.write(
+        logs.map((s) => `${(/* @__PURE__ */ new Date()).toISOString()} - ${s} 
+`).join("")
+      );
+      await file.close();
+    } catch (error) {
+      throw new UHFSocketError(
+        "Error appending to logs: " + String(error)
+      );
     }
   }
   killProcess() {
