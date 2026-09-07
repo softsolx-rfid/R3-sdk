@@ -6,6 +6,7 @@ const socket = new UhfSocket(Drivers.SERIAL_H10);
 (async () => {
     console.log("Starting socket...");
     await socket.inicialice();
+    console.log("Socket initialized");
     socket.on(SockEvent.SET_POWER, (message) => {
         console.log("Received message:", message);
     });

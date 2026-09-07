@@ -590,13 +590,13 @@ var HexapadDriver = class extends BaseDriver {
     }
   }
   async stop() {
-    this.send("STOP" /* STOP */, null);
-    this.port.close();
-    this.subject.complete();
-    this.subjectRaw.complete();
-    this._port = null;
+    await this.sendPromise("STOP" /* STOP */, null);
     await this.stopCron();
     this.sendMessagePipe = [];
+    this.port.close();
+    this._port = null;
+    this.subject.complete();
+    this.subjectRaw.complete();
   }
   send(event, data) {
     this.sendMessagePipe.push({
@@ -647,8 +647,7 @@ var HexapadDriver = class extends BaseDriver {
         );
         break;
       case "RESET" /* RESET */:
-        await this.sendPromise("STOP" /* STOP */, null);
-        await this.sendPromise("START" /* START */, null);
+        await this.restart();
         break;
       case "GET_POWER" /* GET_POWER */:
         await ReadPower.execute(this, 0, true);
@@ -682,6 +681,10 @@ var HexapadDriver = class extends BaseDriver {
     return this.subject.subscribe((message) => {
       callback(message);
     });
+  }
+  async restart() {
+    await ReadTag.execute(this, "off", true);
+    await ReadTag.execute(this, "on", true);
   }
   killProcess() {
     if (this._port) {

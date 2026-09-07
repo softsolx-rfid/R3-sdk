@@ -134,13 +134,13 @@ export class HexapadDriver extends BaseDriver {
     }
 
     public async stop() {
-        this.send(SendSockEvent.STOP, null);
-        this.port.close();
-        this.subject.complete();
-        this.subjectRaw.complete();
-        this._port = null;
+        await this.sendPromise(SendSockEvent.STOP, null);
         await this.stopCron();
         this.sendMessagePipe = [];
+        this.port.close();
+        this._port = null;
+        this.subject.complete();
+        this.subjectRaw.complete();
     }
 
     public send<K extends SendSockEvent>(event: K, data: SendEventMap[K]) {
@@ -200,8 +200,7 @@ export class HexapadDriver extends BaseDriver {
                 );
                 break;
             case SendSockEvent.RESET:
-                await this.sendPromise(SendSockEvent.STOP, null);
-                await this.sendPromise(SendSockEvent.START, null);
+                await this.restart();
                 break;
             case SendSockEvent.GET_POWER:
                 await ReadPower.execute(this, 0, true);
@@ -240,6 +239,11 @@ export class HexapadDriver extends BaseDriver {
         return this.subject.subscribe((message) => {
             callback(message);
         });
+    }
+
+    public async restart() {
+        await ReadTag.execute(this, "off", true);
+        await ReadTag.execute(this, "on", true);
     }
 
     public killProcess() {
