@@ -2,6 +2,7 @@ import { UHFSocketError } from "@/errors/uhf-sock.error";
 import { execPromise } from "@/utils/exec-promise";
 
 export class USBPort {
+    private readonly usbPath = '/dev/exo/rfid-serial';
     static async getUSBPorts(): Promise<string> {
         const usbPortInstance = new USBPort();
         return usbPortInstance.findUSBPorts();
@@ -9,12 +10,12 @@ export class USBPort {
 
     public async findUnix() {
         try {
-            const usbPortList = await execPromise("ls -a /dev/ | grep ttyACM0");
+            const usbPortList = await execPromise("ls -a /dev/ | grep ttyACM");
             const usbPort = usbPortList.split("\n")[0];
             if (!usbPort || usbPort.trim() === "") {
                 return null;
             }
-            return usbPort;
+            return this.usbPath;
         } catch (error) {
             return null;
         }

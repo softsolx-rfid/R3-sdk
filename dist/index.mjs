@@ -383,18 +383,21 @@ async function execPromise(command) {
 
 // src/driver/hexapad-10/utils/usb-port.ts
 var USBPort = class _USBPort {
+  constructor() {
+    this.usbPath = "/dev/exo/rfid-serial";
+  }
   static async getUSBPorts() {
     const usbPortInstance = new _USBPort();
     return usbPortInstance.findUSBPorts();
   }
   async findUnix() {
     try {
-      const usbPortList = await execPromise("ls -a /dev/ | grep ttyACM0");
+      const usbPortList = await execPromise("ls -a /dev/ | grep ttyACM");
       const usbPort = usbPortList.split("\n")[0];
       if (!usbPort || usbPort.trim() === "") {
         return null;
       }
-      return usbPort;
+      return this.usbPath;
     } catch (error) {
       return null;
     }
