@@ -2,7 +2,7 @@ import { UHFSocketError } from "@/errors/uhf-sock.error";
 import { execPromise } from "@/utils/exec-promise";
 
 export class USBPort {
-    private readonly usbPath = '/dev/exo/rfid-serial';
+    private readonly usbPath = 'exo/rfid-serial';
     static async getUSBPorts(): Promise<string> {
         const usbPortInstance = new USBPort();
         return usbPortInstance.findUSBPorts();

@@ -425,7 +425,7 @@ async function execPromise(command) {
 // src/driver/hexapad-10/utils/usb-port.ts
 var USBPort = class _USBPort {
   constructor() {
-    this.usbPath = "/dev/exo/rfid-serial";
+    this.usbPath = "exo/rfid-serial";
   }
   static async getUSBPorts() {
     const usbPortInstance = new _USBPort();
