@@ -960,9 +960,9 @@ var GetUHFSocketLogs = class _GetUHFSocketLogs {
 
 // src/driver/sock-r3/utils/write-log.ts
 async function writeLog(logsPath, ...logs) {
-  const fs3 = await import("fs/promises");
+  const fs6 = await import("fs/promises");
   try {
-    const file = await fs3.open(logsPath, "a");
+    const file = await fs6.open(logsPath, "a");
     await file.write(
       logs.map((s) => `${(/* @__PURE__ */ new Date()).toISOString()} - ${s} 
 `).join("")
@@ -1188,6 +1188,622 @@ var _UHFSockDriverV2 = class _UHFSockDriverV2 {
 _UHFSockDriverV2.instance = null;
 var UHFSockDriverV2 = _UHFSockDriverV2;
 
+// src/driver/hexapad-10-v2/hexapad-driver.ts
+import { Subject as Subject4 } from "rxjs";
+import { SerialPort as SerialPort2 } from "serialport";
+import { promises as fs5 } from "fs";
+import path2 from "path";
+
+// src/driver/hexapad-10-v2/commands/index.ts
+var Command2 = class {
+  constructor(driver, params) {
+    this.driver = driver;
+    this.params = params;
+  }
+  sendCommand(overrideCommand) {
+    return new Promise((resolve, reject) => {
+      this.driver.log(
+        `Executing command: ${overrideCommand ?? this.command} ${this.params}`
+      );
+      const to = setTimeout(() => {
+        reject(new UHFSocketError("Timeout waiting for response"));
+        this.driver.log(
+          `Command ${this.command} ${this.params} timed out.`
+        );
+        sub.unsubscribe();
+      }, 5e3);
+      this.driver.sendRaw(
+        overrideCommand ?? `${this.command} ${this.params}`
+      );
+      const sub = this.driver.onAllRaw((data) => {
+        clearTimeout(to);
+        this.driver.log(`Received response: ${data}`);
+        sub.unsubscribe();
+        resolve(data);
+      });
+    });
+  }
+};
+
+// src/driver/hexapad-10-v2/commands/read-tag.ts
+var ReadTag2 = class _ReadTag extends Command2 {
+  constructor(driver, params) {
+    super(driver, params);
+    this.command = "readtag";
+  }
+  static execute(driver, params, silent = false) {
+    const command = new _ReadTag(driver, params);
+    return command.execute(silent);
+  }
+  async execute(silent = false) {
+    try {
+      const resp = await this.sendCommand();
+      this.driver.subject.next(
+        new Message(
+          this.params === "on" ? "START" /* START */ : "STOP" /* STOP */,
+          resp
+        )
+      );
+      return resp;
+    } catch (error) {
+      this.driver.subject.next(
+        new Message(
+          "ERROR" /* ERROR */,
+          error instanceof Error ? error.message : String(error)
+        )
+      );
+      if (silent) {
+        return "SILENT ERROR";
+      }
+      throw error;
+    }
+  }
+};
+
+// src/driver/hexapad-10-v2/utils/usb-port.ts
+var USBPort2 = class _USBPort {
+  constructor() {
+    this.usbPath = "/dev/serial/by-id/";
+  }
+  static async getUSBPorts() {
+    const usbPortInstance = new _USBPort();
+    return usbPortInstance.findUSBPorts();
+  }
+  async findUnix() {
+    try {
+      const usbPortList = await execPromise(
+        `ls -a ${this.usbPath} | grep ACURA`
+      );
+      const usbPort = usbPortList.split("\n")[0];
+      if (!usbPort || usbPort.trim() === "") {
+        return null;
+      }
+      return `${this.usbPath}${usbPort}`;
+    } catch (error) {
+      return null;
+    }
+  }
+  async findMac() {
+    try {
+      const usbPortList = await execPromise(
+        "ls -a /dev/ | grep cu.usbmodem"
+      );
+      const usbPort = usbPortList.split("\n")[0];
+      if (!usbPort || usbPort.trim() === "") {
+        return null;
+      }
+      return `/dev/${usbPort}`;
+    } catch (error) {
+      return null;
+    }
+  }
+  async findUSBPorts() {
+    const unix = await this.findUnix();
+    if (unix) {
+      return unix;
+    }
+    const mac = await this.findMac();
+    if (mac) {
+      return mac;
+    }
+    throw new UHFSocketError("No USB ports found");
+  }
+};
+
+// src/driver/hexapad-10-v2/commands/enable-beep.ts
+var EnableBeep2 = class _EnableBeep extends Command2 {
+  constructor(driver, params) {
+    super(driver, params);
+    this.command = "enablebeep";
+  }
+  static execute(driver, params, silent = false) {
+    const command = new _EnableBeep(driver, params);
+    return command.execute(silent);
+  }
+  async execute(silent = false) {
+    try {
+      await ReadTag2.execute(this.driver, "off");
+      const resp = await this.sendCommand(
+        this.params === "get" ? this.command : `${this.command} ${this.params}`
+      );
+      this.driver.subject.next(
+        new Message(
+          this.params === "get" ? "GET_BEEP" /* GET_BEEP */ : "SET_BEEP" /* SET_BEEP */,
+          resp.includes("on")
+        )
+      );
+      return resp;
+    } catch (error) {
+      this.driver.subject.next(
+        new Message(
+          "ERROR" /* ERROR */,
+          error instanceof Error ? error.message : String(error)
+        )
+      );
+      if (silent) {
+        return "SILENT ERROR";
+      }
+      throw error;
+    } finally {
+      await ReadTag2.execute(this.driver, "on");
+    }
+  }
+};
+
+// src/driver/hexapad-10-v2/commands/read-power.ts
+var ReadPower2 = class _ReadPower extends Command2 {
+  constructor(driver, params) {
+    super(driver, params);
+    this.command = "readpower";
+  }
+  static execute(driver, params, silent = false) {
+    const command = new _ReadPower(driver, params);
+    return command.execute(silent);
+  }
+  async execute(silent = false) {
+    try {
+      await ReadTag2.execute(this.driver, "off");
+      const resp = await this.sendCommand(
+        this.params === 0 ? this.command : `${this.command} ${this.params}`
+      );
+      const power = Number(resp.replace(/\D/g, ""));
+      this.driver.subject.next(
+        new Message(
+          this.params === 0 ? "GET_POWER" /* GET_POWER */ : "SET_POWER" /* SET_POWER */,
+          [power, power, power, power]
+          // to no broken the default interface for 4 antenna,
+        )
+      );
+      return resp;
+    } catch (error) {
+      this.driver.subject.next(
+        new Message(
+          "ERROR" /* ERROR */,
+          error instanceof Error ? error.message : String(error)
+        )
+      );
+      if (silent) {
+        return "SILENT ERROR";
+      }
+      throw error;
+    } finally {
+      await ReadTag2.execute(this.driver, "on");
+    }
+  }
+};
+
+// src/driver/hexapad-10-v2/commands/enable-caps.ts
+var EnableCapsLock2 = class _EnableCapsLock extends Command2 {
+  constructor(driver, params) {
+    super(driver, params);
+    this.command = "enablecapslock";
+  }
+  static execute(driver, params, silent = false) {
+    const command = new _EnableCapsLock(driver, params);
+    return command.execute(silent);
+  }
+  async execute(silent = false) {
+    try {
+      await ReadTag2.execute(this.driver, "off");
+      const resp = await this.sendCommand(
+        this.params === "get" ? this.command : `${this.command} ${this.params}`
+      );
+      this.driver.subject.next(
+        new Message(
+          this.params === "get" ? "GET_CAPS_LOCK" /* GET_CAPS_LOCK */ : "SET_CAPS_LOCK" /* SET_CAPS_LOCK */,
+          resp.includes("on")
+        )
+      );
+      return resp;
+    } catch (error) {
+      this.driver.subject.next(
+        new Message(
+          "ERROR" /* ERROR */,
+          error instanceof Error ? error.message : String(error)
+        )
+      );
+      if (silent) {
+        return "SILENT ERROR";
+      }
+      throw error;
+    } finally {
+      await ReadTag2.execute(this.driver, "on");
+    }
+  }
+};
+
+// src/driver/hexapad-10-v2/commands/readmode.ts
+var ReadMode2 = class _ReadMode extends Command2 {
+  constructor(driver, params) {
+    super(driver, params);
+    this.command = "readmode";
+  }
+  static execute(driver, params, silent = false) {
+    const command = new _ReadMode(driver, params);
+    return command.execute(silent);
+  }
+  async execute(silent = false) {
+    try {
+      await ReadTag2.execute(this.driver, "off");
+      const resp = await this.sendCommand(
+        `${this.command} ${this.params}`
+      );
+      this.driver.subject.next(
+        new Message("READMODE" /* READMODE */, resp.includes("on"))
+      );
+      return resp;
+    } catch (error) {
+      this.driver.subject.next(
+        new Message(
+          "ERROR" /* ERROR */,
+          error instanceof Error ? error.message : String(error)
+        )
+      );
+      if (silent) {
+        return "SILENT ERROR";
+      }
+      throw error;
+    } finally {
+      await ReadTag2.execute(this.driver, "on");
+    }
+  }
+};
+
+// src/driver/hexapad-10-v2/utils/get-acura-logs.ts
+import { promises as fs3 } from "fs";
+var GetAcuraLogs = class _GetAcuraLogs {
+  static async getLogs(logPath, maxLines = 100) {
+    return await new _GetAcuraLogs().getLogs(logPath, maxLines);
+  }
+  constructor() {
+  }
+  async getLogs(logPath, maxLines = 100) {
+    try {
+      const file = await fs3.open(logPath, "r");
+      const stats = await file.stat();
+      const fileSize = stats.size;
+      const bufferSize = Math.min(fileSize, 5 * 1024 * 1024);
+      const buffer = Buffer.alloc(bufferSize);
+      await file.read(buffer, 0, bufferSize, fileSize - bufferSize);
+      await file.close();
+      const lines = buffer.toString().split("\n");
+      return lines.slice(-maxLines).join("\n");
+    } catch (error) {
+      throw new UHFSocketError("Error reading logs: " + String(error));
+    }
+  }
+};
+
+// src/driver/hexapad-10-v2/utils/log-acura.ts
+import { promises as fs4 } from "fs";
+var LogAcura = class {
+  static async log(logsPath, ...data) {
+    try {
+      const file = await fs4.open(logsPath, "a");
+      await file.write(
+        data.map((s) => `${(/* @__PURE__ */ new Date()).toISOString()} - ${s} 
+`).join("")
+      );
+      await file.close();
+    } catch (error) {
+      throw new UHFSocketError(
+        "Error appending to logs: " + String(error)
+      );
+    }
+  }
+};
+
+// src/driver/hexapad-10-v2/hexapad-driver.ts
+var HexapadDriverV2 = class extends BaseDriver {
+  constructor() {
+    super();
+    this.subject = new Subject4();
+    this.name = "serial-h10-v2" /* SERIAL_H10_V2 */;
+    this._port = null;
+    this.subjectRaw = new Subject4();
+    this.messageBuffer = "";
+    this.sendMessagePipe = [];
+    this.pipeCron = null;
+    this.cronIsRunning = false;
+    // logs-related methods are implemented below
+    this.logsPath = path2.join(process.cwd(), "logs", "hexapad.log");
+    this.socketEvents = [
+      {
+        name: "STOP" /* STOP */,
+        handler: async (data) => {
+          await ReadTag2.execute(this, "off", true);
+        }
+      },
+      {
+        name: "START" /* START */,
+        handler: async (data) => {
+          await ReadTag2.execute(this, "on", true);
+        }
+      },
+      {
+        name: "DISCONNECTED" /* DISCONNECTED */,
+        handler: async (data) => {
+          this.killProcess();
+        }
+      },
+      {
+        name: "EXIT" /* EXIT */,
+        handler: async (data) => {
+          this.killProcess();
+        }
+      },
+      {
+        name: "GET_BEEP" /* GET_BEEP */,
+        handler: async (data) => await EnableBeep2.execute(this, "get", true)
+      },
+      {
+        name: "SET_BEEP" /* SET_BEEP */,
+        handler: async (data) => EnableBeep2.execute(this, data === true ? "on" : "off", true)
+      },
+      {
+        name: "RESET" /* RESET */,
+        handler: async (data) => {
+          await ReadTag2.execute(this, "off", true);
+          await ReadTag2.execute(this, "on", true);
+        }
+      },
+      {
+        name: "GET_POWER" /* GET_POWER */,
+        handler: async (data) => {
+          await ReadPower2.execute(this, 0, true);
+        }
+      },
+      {
+        name: "SET_POWER" /* SET_POWER */,
+        handler: async (data) => {
+          await ReadPower2.execute(
+            this,
+            data?.power ?? 10,
+            true
+          );
+        }
+      },
+      {
+        name: "SET_CAPS_LOCK" /* SET_CAPS_LOCK */,
+        handler: async (data) => await EnableCapsLock2.execute(
+          this,
+          data,
+          true
+        )
+      },
+      {
+        name: "READMODE" /* READMODE */,
+        handler: async (data) => await ReadMode2.execute(this, data, true)
+      }
+    ];
+  }
+  get isRunning() {
+    return !!this._port;
+  }
+  get port() {
+    if (!this._port) {
+      throw new UHFSocketError("Serial port is not initialized.");
+    }
+    return this._port;
+  }
+  startCron() {
+    if (this.pipeCron) {
+      clearInterval(this.pipeCron);
+    }
+    this.pipeCron = setInterval(async () => {
+      if (this.cronIsRunning) {
+        return;
+      }
+      try {
+        const item = this.sendMessagePipe.shift();
+        if (item) {
+          const { fn, message } = item;
+          this.cronIsRunning = true;
+          this.log("Executing command from pipe...", message);
+          const resp = await fn();
+          this.log("Command executed.", String(resp));
+          this.cronIsRunning = false;
+        }
+      } catch (error) {
+        this.cronIsRunning = false;
+      }
+    }, 100);
+  }
+  async start() {
+    try {
+      this.log("Starting HexapadDriver...");
+      this.subject.complete();
+      this.subjectRaw.complete();
+      this.subject = new Subject4();
+      this.subjectRaw = new Subject4();
+      await this.createLogsFileIfNotExists();
+      const usbPort = await USBPort2.getUSBPorts();
+      this._port = new SerialPort2({
+        path: usbPort,
+        baudRate: 115200,
+        dataBits: 8,
+        stopBits: 1,
+        parity: "none"
+      });
+      this.log(
+        "HexapadDriver started.",
+        `SERIAL PORT OPENED: ${usbPort}`
+      );
+      this.port.on("data", (data) => {
+        const chunk = data.toString();
+        this.messageBuffer += chunk;
+        if (chunk.includes("\r\n")) {
+          const message = this.messageBuffer.replace(">", "");
+          this.messageBuffer = "";
+          this.subjectRaw.next(message);
+          if (!this.cronIsRunning) {
+            this.subject.next(
+              new Message(
+                "TAG" /* TAG */,
+                message.replace("\r\n", "").toUpperCase()
+              )
+            );
+          }
+        }
+      });
+      this.port.on("error", (err) => {
+        this.log("Serial port error: " + String(err));
+      });
+      this.startCron();
+      await this.sendPromise("START" /* START */, null);
+      await this.sendPromise("SET_CAPS_LOCK" /* SET_CAPS_LOCK */, "off");
+      await this.sendPromise("READMODE" /* READMODE */, "serial");
+    } catch (error) {
+      this.subject.next(new Message("ERROR" /* ERROR */, error));
+      throw error;
+    }
+  }
+  async stopCron() {
+    if (this.pipeCron) {
+      clearInterval(this.pipeCron);
+      this.pipeCron = null;
+      for (const item of this.sendMessagePipe) {
+        const { fn, message } = item;
+        this.log("Finalizing command from pipe...", message);
+        try {
+          const resp = await fn();
+          this.log("Command finalized.", String(resp));
+        } catch (error) {
+          this.log("Error finalizing command.", String(error));
+        }
+      }
+      this.sendMessagePipe = [];
+    }
+  }
+  async stop() {
+    await this.sendPromise("STOP" /* STOP */, null);
+    await this.stopCron();
+    this.sendMessagePipe = [];
+    this.port.close();
+    this._port = null;
+    this.subject.complete();
+    this.subjectRaw.complete();
+  }
+  send(event, data) {
+    this.sendMessagePipe.push({
+      fn: async () => await this.sendMessagePipeResolver(event, data),
+      message: String(event)
+    });
+  }
+  async sendPromise(event, data) {
+    return new Promise((resolve, reject) => {
+      this.sendMessagePipe.push({
+        fn: async () => {
+          try {
+            const resp = await this.sendMessagePipeResolver(
+              event,
+              data
+            );
+            resolve(resp);
+          } catch (error) {
+            reject(error);
+          }
+        },
+        message: String(event)
+      });
+    });
+  }
+  async sendMessagePipeResolver(event, data) {
+    const eventHandler = this.socketEvents.find((e) => e.name === event);
+    if (eventHandler) {
+      await eventHandler.handler(data);
+    } else {
+      this.log("Unknown event: " + String(event));
+      this.subject.next(
+        new Message("ERROR" /* ERROR */, "Unknown event: " + String(event))
+      );
+    }
+  }
+  on(event, callback) {
+    return this.subject.subscribe((message) => {
+      if (message.event === event) {
+        callback(message);
+      }
+    });
+  }
+  onAll(callback) {
+    return this.subject.subscribe((message) => {
+      callback(message);
+    });
+  }
+  // Raw data handling methods
+  /**
+   * @param data The raw data string to send to the device.
+   * @description Sends a raw data string directly to the device.
+   */
+  async sendRaw(data) {
+    this.port.write(`
+${data}\r
+`);
+  }
+  /**
+   * @param callback The callback function to handle raw messages.
+   * @returns A subscription to the raw message stream.
+   * @description Use only if you need to handle raw messages directly from the device.
+   */
+  onAllRaw(callback) {
+    return this.subjectRaw.subscribe((message) => {
+      callback(message);
+    });
+  }
+  async log(...data) {
+    LogAcura.log(this.logsPath, ...data);
+  }
+  async createLogsFileIfNotExists() {
+    const logsDir = path2.dirname(this.logsPath);
+    await fs5.mkdir(logsDir, { recursive: true });
+    const file = await fs5.open(this.logsPath, "a", 438);
+    await file.close();
+  }
+  async getLogs(maxLines = 1e3) {
+    return await GetAcuraLogs.getLogs(this.logsPath, maxLines);
+  }
+  killProcess() {
+    this.subject.complete();
+    this.subjectRaw.complete();
+    if (this._port) {
+      this._port.close();
+      this._port = null;
+    }
+    if (this.pipeCron) {
+      clearInterval(this.pipeCron);
+      this.pipeCron = null;
+      this.sendMessagePipe = [];
+    }
+    this.subject.next(
+      new Message(
+        "DISCONNECTED" /* DISCONNECTED */,
+        "Hexapad driver process killed"
+      )
+    );
+  }
+};
+
 // src/index.ts
 var Drivers = /* @__PURE__ */ ((Drivers2) => {
   Drivers2["UHF_SOCKET_R3"] = "uhf-socket-r3";
@@ -1203,7 +1819,8 @@ var UhfSocket = class _UhfSocket {
     this.drivers = [
       UhfSockDriver,
       UHFSockDriverV2,
-      HexapadDriver
+      HexapadDriver,
+      HexapadDriverV2
     ];
     if (_UhfSocket.instance) {
       return _UhfSocket.instance;

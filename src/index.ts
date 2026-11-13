@@ -10,6 +10,7 @@ import { SockEvent } from "./driver/events.enum";
 import { UhfSockDriver } from "./driver/sock-r3/old-uhf-sock.driver";
 import { HexapadDriver } from "./driver/hexapad-10/hexapad-driver";
 import { UHFSockDriverV2 } from "./driver/sock-r3/new-uhf-sock.driver";
+import { HexapadDriverV2 } from "./driver/hexapad-10-v2/hexapad-driver";
 
 export enum Drivers {
     UHF_SOCKET_R3 = "uhf-socket-r3",
@@ -26,6 +27,7 @@ class UhfSocket {
         UhfSockDriver,
         UHFSockDriverV2,
         HexapadDriver,
+        HexapadDriverV2,
     ];
 
     constructor(driver: Drivers) {
