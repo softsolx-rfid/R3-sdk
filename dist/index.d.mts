@@ -110,7 +110,8 @@ declare class UHFSocketError extends Error {
 declare enum Drivers {
     UHF_SOCKET_R3 = "uhf-socket-r3",
     UHF_SOCKET_R3_V2 = "uhf-socket-r3-v2",
-    SERIAL_H10 = "serial-h10"
+    SERIAL_H10 = "serial-h10",
+    SERIAL_H10_V2 = "serial-h10-v2"
 }
 declare class UhfSocket {
     private _connection;

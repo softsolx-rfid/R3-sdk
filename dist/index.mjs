@@ -54,7 +54,7 @@ var SockEvent = /* @__PURE__ */ ((SockEvent2) => {
   return SockEvent2;
 })(SockEvent || {});
 
-// src/driver/sock-r3/uhf-sock.driver.ts
+// src/driver/sock-r3/old-uhf-sock.driver.ts
 import net from "net";
 import { Subject } from "rxjs";
 import { readFileSync } from "fs";
@@ -78,7 +78,7 @@ var Message = class {
 var BaseDriver = class {
 };
 
-// src/driver/sock-r3/uhf-sock.driver.ts
+// src/driver/sock-r3/old-uhf-sock.driver.ts
 var _UhfSockDriver = class _UhfSockDriver extends BaseDriver {
   constructor() {
     super();
@@ -891,11 +891,309 @@ ${data}\r
   }
 };
 
+// src/driver/sock-r3/utils/driver-info.ts
+import { readFileSync as readFileSync2 } from "fs";
+var R3DriverInfo = class {
+  constructor() {
+    try {
+      const driverInfo = JSON.parse(
+        readFileSync2("/var/uhf/uhf.var", "utf8")
+      );
+      if (!driverInfo.socketPath || !driverInfo.logsPath || !driverInfo.pid) {
+        throw new UHFSocketError(
+          "Invalid UHF socket variable file. Please ensure that the UHF socket server is running and the /var/uhf/uhf.var file contains valid information."
+        );
+      }
+      this.socketPath = driverInfo.socketPath;
+      this.logsPath = driverInfo.logsPath;
+      this.pid = driverInfo.pid;
+    } catch (error) {
+      throw new UHFSocketError(
+        "UHF socket variable file not found. Please ensure that the UHF socket server is running and the /var/uhf/uhf.var file exists."
+      );
+    }
+  }
+};
+
+// src/driver/sock-r3/new-uhf-sock.driver.ts
+import { createConnection } from "net";
+import { Subject as Subject3 } from "rxjs";
+
+// src/driver/sock-r3/utils/kill-process.ts
+var KillProcess = class {
+  static kill(pid) {
+    try {
+      if (process.getuid && process.getuid() !== 0) {
+        throw new UHFSocketError(
+          "Insufficient privileges to kill the process. Please run the application with sudo or as root."
+        );
+      }
+      process.kill(pid);
+    } catch (error) {
+      console.error("Error killing process:", error);
+    }
+  }
+};
+
+// src/driver/sock-r3/utils/get-uhf-logs.ts
+import { open as open2 } from "fs/promises";
+var GetUHFSocketLogs = class _GetUHFSocketLogs {
+  constructor(logsPath) {
+    this.logsPath = logsPath;
+  }
+  static async start(logsPath, maxLines) {
+    const instance = new _GetUHFSocketLogs(logsPath);
+    return instance.getLogsData(maxLines);
+  }
+  async getLogsData(maxLines) {
+    const file = await open2(this.logsPath, "r");
+    const stats = await file.stat();
+    const fileSize = stats.size;
+    const bufferSize = Math.min(fileSize, 5 * 1024 * 1024);
+    const buffer = Buffer.alloc(bufferSize);
+    await file.read(buffer, 0, bufferSize, fileSize - bufferSize);
+    await file.close();
+    const lines = buffer.toString().split("\n");
+    return lines.slice(-maxLines).join("\n");
+  }
+};
+
+// src/driver/sock-r3/utils/write-log.ts
+async function writeLog(logsPath, ...logs) {
+  const fs3 = await import("fs/promises");
+  try {
+    const file = await fs3.open(logsPath, "a");
+    await file.write(
+      logs.map((s) => `${(/* @__PURE__ */ new Date()).toISOString()} - ${s} 
+`).join("")
+    );
+    await file.close();
+  } catch (error) {
+    throw new UHFSocketError("Error appending to logs: " + String(error));
+  }
+}
+
+// src/driver/sock-r3/utils/message-procesing.ts
+var MessageProcessing = class _MessageProcessing {
+  constructor(client, subject) {
+    this.client = client;
+    this.subject = subject;
+    this.dataBuffer = "";
+  }
+  static create(client, subject) {
+    return new _MessageProcessing(client, subject);
+  }
+  async processMessage(data, onPing) {
+    if (data.toString() === "PING") {
+      onPing();
+      this.client.write("PONG\n");
+      return;
+    }
+    try {
+      this.dataBuffer += data.toString();
+      let line = this.dataBuffer.indexOf("\n");
+      while (line !== -1) {
+        const messageStr = this.dataBuffer.slice(0, line);
+        this.dataBuffer = this.dataBuffer.slice(line + 1);
+        try {
+          const message = JSON.parse(messageStr);
+          this.emit(message.event, message.data);
+        } catch (error) {
+          this.emitError("Error parsing message: " + String(error));
+        }
+        line = this.dataBuffer.indexOf("\n");
+      }
+    } catch (error) {
+      this.emitError("Error processing data: " + String(error));
+    }
+  }
+  emit(event, data) {
+    this.subject.next(new Message(event, data));
+  }
+  emitError(message) {
+    this.subject.next(
+      new Message("ERROR" /* ERROR */, new UHFSocketError(message))
+    );
+  }
+};
+
+// src/driver/sock-r3/new-uhf-sock.driver.ts
+var _UHFSockDriverV2 = class _UHFSockDriverV2 {
+  constructor() {
+    this.name = "uhf-socket-r3-v2" /* UHF_SOCKET_R3_V2 */;
+    // utils
+    this.retryAttempts = 0;
+    this.retryTimer = null;
+    this.subject = new Subject3();
+    this._client = null;
+    if (!_UHFSockDriverV2.instance) {
+      this.driverInfo = new R3DriverInfo();
+      _UHFSockDriverV2.instance = this;
+    } else {
+      throw new UHFSocketError("Instance already exists.");
+    }
+  }
+  get isRunning() {
+    return this._client !== null;
+  }
+  get observable() {
+    return this.subject.asObservable();
+  }
+  get client() {
+    if (!this._client) {
+      throw new UHFSocketError("Client not initialized.");
+    }
+    return this._client;
+  }
+  // locals methods
+  emit(event, data) {
+    this.subject.next(new Message(event, data));
+  }
+  emitError(message) {
+    this.subject.next(
+      new Message("ERROR" /* ERROR */, new UHFSocketError(message))
+    );
+  }
+  retryConnection() {
+    if (this.retryTimer) {
+      return;
+    }
+    if (this.retryAttempts < 5) {
+      this.retryAttempts++;
+      this.retryTimer = setTimeout(() => {
+        this.retryTimer = null;
+        const client = this._client;
+        this._client = null;
+        if (client) {
+          client.destroy();
+        }
+        void this.start();
+      }, 1e3 * this.retryAttempts);
+    } else {
+      this.emitError("Max retry attempts reached. Connection failed.");
+      void this.stop();
+    }
+  }
+  sendMessage(message) {
+    this.client.write(message.toJson() + "\n");
+  }
+  // interface methods
+  async start() {
+    if (this._client) {
+      return;
+    }
+    if (this.subject.isStopped) {
+      this.subject = new Subject3();
+    }
+    const client = createConnection(
+      this.driverInfo.socketPath,
+      () => this.emit("CONNECTED" /* CONNECTED */, null)
+    );
+    this._client = client;
+    const messageProcessing = MessageProcessing.create(client, this.subject);
+    client.on("data", (data) => {
+      messageProcessing.processMessage(data, () => {
+        this.retryAttempts = 0;
+      });
+    });
+    client.on("close", () => {
+      this.log("Socket closed.");
+      this.handleSocketClose(client);
+    });
+    client.on("error", (err) => {
+      this.emitError("Socket error: " + String(err));
+      this.log("Socket error: " + String(err));
+      this.retryConnection();
+    });
+    client.on("end", () => {
+      this.log("Socket ended.");
+      this.handleSocketClose(client);
+    });
+  }
+  handleSocketClose(client) {
+    if (this._client !== client) {
+      return;
+    }
+    this._client = null;
+    if (!this.retryTimer) {
+      this.emit("DISCONNECTED" /* DISCONNECTED */, null);
+      this.subject.complete();
+      _UHFSockDriverV2.instance = null;
+    }
+  }
+  stop() {
+    if (this.retryTimer) {
+      clearTimeout(this.retryTimer);
+      this.retryTimer = null;
+    }
+    if (this._client) {
+      const client = this._client;
+      this._client = null;
+      this.emit("DISCONNECTED" /* DISCONNECTED */, null);
+      client.end();
+      client.destroy();
+    }
+    this.subject.complete();
+    _UHFSockDriverV2.instance = null;
+    return Promise.resolve();
+  }
+  send(event, data) {
+    const message = new Message(event, data);
+    this.sendMessage(message);
+  }
+  on(event, callback) {
+    const subscription = this.observable.subscribe(
+      (message) => {
+        if (message.event === event) {
+          callback(message);
+        }
+      }
+    );
+    return subscription;
+  }
+  onAll(callback) {
+    const subscription = this.observable.subscribe(
+      (message) => {
+        callback(message);
+      }
+    );
+    return subscription;
+  }
+  async sendRaw(data) {
+    this.client.write(data);
+  }
+  killProcess() {
+    if (this.retryTimer) {
+      clearTimeout(this.retryTimer);
+      this.retryTimer = null;
+    }
+    if (this._client) {
+      const client = this._client;
+      this._client = null;
+      client.end();
+      client.destroy();
+    }
+    _UHFSockDriverV2.instance = null;
+    KillProcess.kill(this.driverInfo.pid);
+    this.subject.next(new Message("EXIT" /* EXIT */, null));
+    this.subject.complete();
+  }
+  async getLogs(maxLines) {
+    return GetUHFSocketLogs.start(this.driverInfo.logsPath, maxLines);
+  }
+  async log(...logs) {
+    await writeLog(this.driverInfo.logsPath, ...logs);
+  }
+};
+_UHFSockDriverV2.instance = null;
+var UHFSockDriverV2 = _UHFSockDriverV2;
+
 // src/index.ts
 var Drivers = /* @__PURE__ */ ((Drivers2) => {
   Drivers2["UHF_SOCKET_R3"] = "uhf-socket-r3";
   Drivers2["UHF_SOCKET_R3_V2"] = "uhf-socket-r3-v2";
   Drivers2["SERIAL_H10"] = "serial-h10";
+  Drivers2["SERIAL_H10_V2"] = "serial-h10-v2";
   return Drivers2;
 })(Drivers || {});
 var UhfSocket = class _UhfSocket {
@@ -904,6 +1202,7 @@ var UhfSocket = class _UhfSocket {
     this.instanceDeleted = false;
     this.drivers = [
       UhfSockDriver,
+      UHFSockDriverV2,
       HexapadDriver
     ];
     if (_UhfSocket.instance) {

@@ -7,13 +7,15 @@ import { UHFSocketError } from "./errors/uhf-sock.error";
 import { BaseDriver } from "./driver/base-driver.abstract";
 import { SendSockEvent } from "./driver/send-events.enum";
 import { SockEvent } from "./driver/events.enum";
-import { UhfSockDriver } from "./driver/sock-r3/uhf-sock.driver";
+import { UhfSockDriver } from "./driver/sock-r3/old-uhf-sock.driver";
 import { HexapadDriver } from "./driver/hexapad-10/hexapad-driver";
+import { UHFSockDriverV2 } from "./driver/sock-r3/new-uhf-sock.driver";
 
 export enum Drivers {
     UHF_SOCKET_R3 = "uhf-socket-r3",
     UHF_SOCKET_R3_V2 = "uhf-socket-r3-v2",
     SERIAL_H10 = "serial-h10",
+    SERIAL_H10_V2 = "serial-h10-v2",
 }
 
 class UhfSocket {
@@ -22,6 +24,7 @@ class UhfSocket {
     private instanceDeleted = false;
     private readonly drivers: (new () => BaseDriver)[] = [
         UhfSockDriver,
+        UHFSockDriverV2,
         HexapadDriver,
     ];
 
