@@ -109,12 +109,14 @@ declare class UHFSocketError extends Error {
 
 declare enum Drivers {
     UHF_SOCKET_R3 = "uhf-socket-r3",
+    UHF_SOCKET_R3_V2 = "uhf-socket-r3-v2",
     SERIAL_H10 = "serial-h10"
 }
 declare class UhfSocket {
     private _connection;
     private static instance;
     private instanceDeleted;
+    private readonly drivers;
     constructor(driver: Drivers);
     private get connection();
     get isStarted(): boolean;

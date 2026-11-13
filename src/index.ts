@@ -12,6 +12,7 @@ import { HexapadDriver } from "./driver/hexapad-10/hexapad-driver";
 
 export enum Drivers {
     UHF_SOCKET_R3 = "uhf-socket-r3",
+    UHF_SOCKET_R3_V2 = "uhf-socket-r3-v2",
     SERIAL_H10 = "serial-h10",
 }
 
@@ -19,21 +20,20 @@ class UhfSocket {
     private _connection: BaseDriver | null = null;
     private static instance: UhfSocket | null;
     private instanceDeleted = false;
+    private readonly drivers: (new () => BaseDriver)[] = [
+        UhfSockDriver,
+        HexapadDriver,
+    ];
 
     constructor(driver: Drivers) {
         if (UhfSocket.instance) {
             return UhfSocket.instance;
         }
-        switch (driver) {
-            case Drivers.UHF_SOCKET_R3:
-                this._connection = new UhfSockDriver();
-                break;
-            case Drivers.SERIAL_H10:
-                this._connection = new HexapadDriver();
-                break;
-            default:
-                throw new UHFSocketError("Unsupported driver");
+        const current = this.drivers.find((d) => d.name === driver);
+        if (!current) {
+            throw new UHFSocketError("Unsupported driver");
         }
+        this._connection = new current();
         UhfSocket.instance = this;
     }
 

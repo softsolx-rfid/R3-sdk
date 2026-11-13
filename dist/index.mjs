@@ -894,6 +894,7 @@ ${data}\r
 // src/index.ts
 var Drivers = /* @__PURE__ */ ((Drivers2) => {
   Drivers2["UHF_SOCKET_R3"] = "uhf-socket-r3";
+  Drivers2["UHF_SOCKET_R3_V2"] = "uhf-socket-r3-v2";
   Drivers2["SERIAL_H10"] = "serial-h10";
   return Drivers2;
 })(Drivers || {});
@@ -901,19 +902,18 @@ var UhfSocket = class _UhfSocket {
   constructor(driver) {
     this._connection = null;
     this.instanceDeleted = false;
+    this.drivers = [
+      UhfSockDriver,
+      HexapadDriver
+    ];
     if (_UhfSocket.instance) {
       return _UhfSocket.instance;
     }
-    switch (driver) {
-      case "uhf-socket-r3" /* UHF_SOCKET_R3 */:
-        this._connection = new UhfSockDriver();
-        break;
-      case "serial-h10" /* SERIAL_H10 */:
-        this._connection = new HexapadDriver();
-        break;
-      default:
-        throw new UHFSocketError("Unsupported driver");
+    const current = this.drivers.find((d) => d.name === driver);
+    if (!current) {
+      throw new UHFSocketError("Unsupported driver");
     }
+    this._connection = new current();
     _UhfSocket.instance = this;
   }
   get connection() {
