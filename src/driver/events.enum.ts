@@ -13,4 +13,7 @@ export enum SockEvent {
     TAG_RAW = "TAG_RAW",
     EXIT = "EXIT",
     DATA = "DATA", // FROM not specified
+    SET_CAPS_LOCK = "SET_CAPS_LOCK",
+    GET_CAPS_LOCK = "GET_CAPS_LOCK",
+    READMODE = "READMODE",
 }

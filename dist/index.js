@@ -68,6 +68,8 @@ var SendSockEvent = /* @__PURE__ */ ((SendSockEvent2) => {
   SendSockEvent2["SET_BEEP"] = "SET_BEEP";
   SendSockEvent2["GET_BEEP"] = "GET_BEEP";
   SendSockEvent2["EXIT"] = "EXIT";
+  SendSockEvent2["SET_CAPS_LOCK"] = "SET_CAPS_LOCK";
+  SendSockEvent2["READMODE"] = "READMODE";
   return SendSockEvent2;
 })(SendSockEvent || {});
 
@@ -87,6 +89,9 @@ var SockEvent = /* @__PURE__ */ ((SockEvent2) => {
   SockEvent2["TAG_RAW"] = "TAG_RAW";
   SockEvent2["EXIT"] = "EXIT";
   SockEvent2["DATA"] = "DATA";
+  SockEvent2["SET_CAPS_LOCK"] = "SET_CAPS_LOCK";
+  SockEvent2["GET_CAPS_LOCK"] = "GET_CAPS_LOCK";
+  SockEvent2["READMODE"] = "READMODE";
   return SockEvent2;
 })(SockEvent || {});
 
@@ -425,7 +430,7 @@ async function execPromise(command) {
 // src/driver/hexapad-10/utils/usb-port.ts
 var USBPort = class _USBPort {
   constructor() {
-    this.usbPath = "exo/rfid-serial";
+    this.usbPath = "/dev/serial/by-id/";
   }
   static async getUSBPorts() {
     const usbPortInstance = new _USBPort();
@@ -433,12 +438,14 @@ var USBPort = class _USBPort {
   }
   async findUnix() {
     try {
-      const usbPortList = await execPromise("ls -a /dev/ | grep ttyACM");
+      const usbPortList = await execPromise(
+        `ls -a ${this.usbPath} | grep ACURA`
+      );
       const usbPort = usbPortList.split("\n")[0];
       if (!usbPort || usbPort.trim() === "") {
         return null;
       }
-      return this.usbPath;
+      return `${this.usbPath}${usbPort}`;
     } catch (error) {
       return null;
     }
@@ -452,7 +459,7 @@ var USBPort = class _USBPort {
       if (!usbPort || usbPort.trim() === "") {
         return null;
       }
-      return usbPort;
+      return `/dev/${usbPort}`;
     } catch (error) {
       return null;
     }
@@ -552,6 +559,83 @@ var ReadPower = class _ReadPower extends Command {
   }
 };
 
+// src/driver/hexapad-10/commands/enable-caps.ts
+var EnableCapsLock = class _EnableCapsLock extends Command {
+  constructor(driver, params) {
+    super(driver, params);
+    this.command = "enablecapslock";
+  }
+  static execute(driver, params, silent = false) {
+    const command = new _EnableCapsLock(driver, params);
+    return command.execute(silent);
+  }
+  async execute(silent = false) {
+    try {
+      await ReadTag.execute(this.driver, "off");
+      const resp = await this.sendCommand(
+        this.params === "get" ? this.command : `${this.command} ${this.params}`
+      );
+      this.driver.subject.next(
+        new Message(
+          this.params === "get" ? "GET_CAPS_LOCK" /* GET_CAPS_LOCK */ : "SET_CAPS_LOCK" /* SET_CAPS_LOCK */,
+          resp.includes("on")
+        )
+      );
+      return resp;
+    } catch (error) {
+      this.driver.subject.next(
+        new Message(
+          "ERROR" /* ERROR */,
+          error instanceof Error ? error.message : String(error)
+        )
+      );
+      if (silent) {
+        return "SILENT ERROR";
+      }
+      throw error;
+    } finally {
+      await ReadTag.execute(this.driver, "on");
+    }
+  }
+};
+
+// src/driver/hexapad-10/commands/readmode.ts
+var ReadMode = class _ReadMode extends Command {
+  constructor(driver, params) {
+    super(driver, params);
+    this.command = "readmode";
+  }
+  static execute(driver, params, silent = false) {
+    const command = new _ReadMode(driver, params);
+    return command.execute(silent);
+  }
+  async execute(silent = false) {
+    try {
+      await ReadTag.execute(this.driver, "off");
+      const resp = await this.sendCommand(
+        `${this.command} ${this.params}`
+      );
+      this.driver.subject.next(
+        new Message("READMODE" /* READMODE */, resp.includes("on"))
+      );
+      return resp;
+    } catch (error) {
+      this.driver.subject.next(
+        new Message(
+          "ERROR" /* ERROR */,
+          error instanceof Error ? error.message : String(error)
+        )
+      );
+      if (silent) {
+        return "SILENT ERROR";
+      }
+      throw error;
+    } finally {
+      await ReadTag.execute(this.driver, "on");
+    }
+  }
+};
+
 // src/driver/hexapad-10/hexapad-driver.ts
 var HexapadDriver = class extends BaseDriver {
   constructor() {
@@ -609,7 +693,7 @@ var HexapadDriver = class extends BaseDriver {
       await this.createLogsFileIfNotExists();
       const usbPort = await USBPort.getUSBPorts();
       this._port = new import_serialport.SerialPort({
-        path: `/dev/${usbPort}`,
+        path: usbPort,
         baudRate: 115200,
         dataBits: 8,
         stopBits: 1,
@@ -617,7 +701,7 @@ var HexapadDriver = class extends BaseDriver {
       });
       this.log(
         "HexapadDriver started.",
-        `SERIAL PORT OPENED: /dev/${usbPort}`
+        `SERIAL PORT OPENED: ${usbPort}`
       );
       this.port.on("data", (data) => {
         const chunk = data.toString();
@@ -641,6 +725,8 @@ var HexapadDriver = class extends BaseDriver {
       });
       this.startCron();
       await this.sendPromise("START" /* START */, null);
+      await this.sendPromise("SET_CAPS_LOCK" /* SET_CAPS_LOCK */, "off");
+      await this.sendPromise("READMODE" /* READMODE */, "serial");
     } catch (error) {
       this.subject.next(new Message("ERROR" /* ERROR */, error));
       throw error;
@@ -732,6 +818,16 @@ var HexapadDriver = class extends BaseDriver {
           data?.power ?? 10,
           true
         );
+        break;
+      case "SET_CAPS_LOCK" /* SET_CAPS_LOCK */:
+        await EnableCapsLock.execute(
+          this,
+          data,
+          true
+        );
+        break;
+      case "READMODE" /* READMODE */:
+        await ReadMode.execute(this, data, true);
         break;
       default:
         this.log("Unknown event: " + String(event));

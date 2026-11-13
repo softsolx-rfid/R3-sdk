@@ -25,4 +25,7 @@ export type EventMap = {
     ) => void;
     [SockEvent.EXIT]: (message: Message<null>) => void;
     [SockEvent.DATA]: (message: Message<string>) => void;
+    [SockEvent.SET_CAPS_LOCK]: (message: Message<string>) => void;
+    [SockEvent.GET_CAPS_LOCK]: (message: Message<string>) => void;
+    [SockEvent.READMODE]: (message: Message<string>) => void;
 };

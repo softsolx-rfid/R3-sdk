@@ -13,6 +13,8 @@ import { ReadTag } from "./commands/read-tag";
 import { USBPort } from "./utils/usb-port";
 import { EnableBeep } from "./commands/enable-beep";
 import { ReadPower } from "./commands/read-power";
+import { EnableCapsLock } from "./commands/enable-caps";
+import { ReadMode, ReadModeParams } from "./commands/readmode";
 
 export class HexapadDriver extends BaseDriver {
     public subject = new Subject<Message>();
@@ -76,7 +78,7 @@ export class HexapadDriver extends BaseDriver {
             await this.createLogsFileIfNotExists();
             const usbPort = await USBPort.getUSBPorts();
             this._port = new SerialPort({
-                path: `/dev/${usbPort}`,
+                path: usbPort,
                 baudRate: 115200,
                 dataBits: 8,
                 stopBits: 1,
@@ -84,7 +86,7 @@ export class HexapadDriver extends BaseDriver {
             });
             this.log(
                 "HexapadDriver started.",
-                "SERIAL PORT OPENED: " + `/dev/${usbPort}`,
+                "SERIAL PORT OPENED: " + `${usbPort}`,
             );
             this.port.on("data", (data) => {
                 const chunk: string = data.toString();
@@ -108,6 +110,8 @@ export class HexapadDriver extends BaseDriver {
             });
             this.startCron();
             await this.sendPromise(SendSockEvent.START, null);
+            await this.sendPromise(SendSockEvent.SET_CAPS_LOCK, "off");
+            await this.sendPromise(SendSockEvent.READMODE, "serial");
         } catch (error) {
             this.subject.next(new Message(SockEvent.ERROR, error));
             throw error;
@@ -211,6 +215,16 @@ export class HexapadDriver extends BaseDriver {
                     (data as { power?: number })?.power ?? 10,
                     true,
                 );
+                break;
+            case SendSockEvent.SET_CAPS_LOCK:
+                await EnableCapsLock.execute(
+                    this,
+                    data as "on" | "off" | "get",
+                    true,
+                );
+                break;
+            case SendSockEvent.READMODE:
+                await ReadMode.execute(this, data as ReadModeParams, true);
                 break;
             default:
                 this.log("Unknown event: " + String(event));

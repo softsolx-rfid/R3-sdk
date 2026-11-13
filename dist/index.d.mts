@@ -14,7 +14,10 @@ declare enum SockEvent {
     TAG = "TAG",
     TAG_RAW = "TAG_RAW",
     EXIT = "EXIT",
-    DATA = "DATA"
+    DATA = "DATA",// FROM not specified
+    SET_CAPS_LOCK = "SET_CAPS_LOCK",
+    GET_CAPS_LOCK = "GET_CAPS_LOCK",
+    READMODE = "READMODE"
 }
 
 declare class Message<T = any> {
@@ -54,6 +57,9 @@ type EventMap = {
     }>) => void;
     [SockEvent.EXIT]: (message: Message<null>) => void;
     [SockEvent.DATA]: (message: Message<string>) => void;
+    [SockEvent.SET_CAPS_LOCK]: (message: Message<string>) => void;
+    [SockEvent.GET_CAPS_LOCK]: (message: Message<string>) => void;
+    [SockEvent.READMODE]: (message: Message<string>) => void;
 };
 
 declare enum SendSockEvent {
@@ -65,7 +71,9 @@ declare enum SendSockEvent {
     GET_POWER = "GET_POWER",
     SET_BEEP = "SET_BEEP",
     GET_BEEP = "GET_BEEP",
-    EXIT = "EXIT"
+    EXIT = "EXIT",
+    SET_CAPS_LOCK = "SET_CAPS_LOCK",
+    READMODE = "READMODE"
 }
 
 declare enum Antenna {
@@ -75,6 +83,8 @@ declare enum Antenna {
     ANTENNA_3 = 3,
     ANTENNA_4 = 4
 }
+
+type ReadModeParams = "hid" | "hidserial" | "serial" | "transparent";
 
 type SendEventMap = {
     [SendSockEvent.DISCONNECTED]: null;
@@ -89,6 +99,8 @@ type SendEventMap = {
     [SendSockEvent.SET_BEEP]: boolean;
     [SendSockEvent.GET_BEEP]: null;
     [SendSockEvent.EXIT]: null;
+    [SendSockEvent.SET_CAPS_LOCK]: "on" | "off" | "get";
+    [SendSockEvent.READMODE]: ReadModeParams;
 };
 
 declare class UHFSocketError extends Error {
