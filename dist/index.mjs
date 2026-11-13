@@ -1817,10 +1817,10 @@ var UhfSocket = class _UhfSocket {
     this._connection = null;
     this.instanceDeleted = false;
     this.drivers = [
-      UhfSockDriver,
-      UHFSockDriverV2,
-      HexapadDriver,
-      HexapadDriverV2
+      { driver: UhfSockDriver, name: "uhf-socket-r3" /* UHF_SOCKET_R3 */ },
+      { driver: UHFSockDriverV2, name: "uhf-socket-r3-v2" /* UHF_SOCKET_R3_V2 */ },
+      { driver: HexapadDriver, name: "serial-h10" /* SERIAL_H10 */ },
+      { driver: HexapadDriverV2, name: "serial-h10-v2" /* SERIAL_H10_V2 */ }
     ];
     if (_UhfSocket.instance) {
       return _UhfSocket.instance;
@@ -1829,7 +1829,7 @@ var UhfSocket = class _UhfSocket {
     if (!current) {
       throw new UHFSocketError("Unsupported driver");
     }
-    this._connection = new current();
+    this._connection = new current.driver();
     _UhfSocket.instance = this;
   }
   get connection() {

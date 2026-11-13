@@ -23,11 +23,14 @@ class UhfSocket {
     private _connection: BaseDriver | null = null;
     private static instance: UhfSocket | null;
     private instanceDeleted = false;
-    private readonly drivers: (new () => BaseDriver)[] = [
-        UhfSockDriver,
-        UHFSockDriverV2,
-        HexapadDriver,
-        HexapadDriverV2,
+    private readonly drivers: {
+        driver: new () => BaseDriver;
+        name: Drivers;
+    }[] = [
+        { driver: UhfSockDriver, name: Drivers.UHF_SOCKET_R3 },
+        { driver: UHFSockDriverV2, name: Drivers.UHF_SOCKET_R3_V2 },
+        { driver: HexapadDriver, name: Drivers.SERIAL_H10 },
+        { driver: HexapadDriverV2, name: Drivers.SERIAL_H10_V2 },
     ];
 
     constructor(driver: Drivers) {
@@ -38,7 +41,7 @@ class UhfSocket {
         if (!current) {
             throw new UHFSocketError("Unsupported driver");
         }
-        this._connection = new current();
+        this._connection = new current.driver();
         UhfSocket.instance = this;
     }
 
